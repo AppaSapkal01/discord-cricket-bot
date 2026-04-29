@@ -1,4 +1,5 @@
 # Environment secrets
 .env
 
+credentials.json
 node_modules
