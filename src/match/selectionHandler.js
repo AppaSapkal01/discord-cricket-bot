@@ -71,38 +71,36 @@ async function selectNextBatsman(interaction, remainingBatsmen, overNumber, inni
     return null;
   }
 
-  // Filter out batsmen who are already batting or dismissed
+  // Filter out batsmen who are currently batting or dismissed
   const availableBatsmen = remainingBatsmen.filter(name => {
     // Don't show batsmen who are currently batting
     const isCurrentlyBatting = name === matchState.battingOrder[matchState.strikerIdx] ||
       name === matchState.battingOrder[matchState.nonStrikerIdx];
-    return !isCurrentlyBatting;
+
+    // Don't show dismissed batsmen
+    const isDismissed = matchState.dismissedBatsmen.has(name);
+
+    return !isCurrentlyBatting && !isDismissed;
   });
 
-  // Also filter out any batsman who already has stats (means they've batted and got out)
-  // We need to track dismissed batsmen
-  if (!matchState.dismissedBatsmen) matchState.dismissedBatsmen = new Set();
-
-  const finalAvailable = availableBatsmen.filter(name => !matchState.dismissedBatsmen.has(name));
-
-  if (finalAvailable.length === 0) return null;
+  if (availableBatsmen.length === 0) return null;
 
   const selectMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`batsman_${inningNumber}_${overNumber}_${Date.now()}`)
       .setPlaceholder("Select next batsman")
-      .addOptions(remainingBatsmen.map(name => ({ label: name, value: name })))
+      .addOptions(availableBatsmen.map(name => ({ label: name, value: name })))
   );
 
   const promptMessage = await interaction.channel.send({
-    content: `**${battingTeam.teamName}:** Select your next batsman (15s to respond):`,
+    content: `**${battingTeam.teamName}:** Select your next batsman (30 seconds to respond):`,
     components: [selectMenu]
   });
 
   try {
     const choice = await interaction.channel.awaitMessageComponent({
       filter: i => i.customId.startsWith(`batsman_${inningNumber}_${overNumber}_`),
-      time: SELECTION_TIMEOUT,
+      time: 30000,
       componentType: ComponentType.StringSelect
     });
 
@@ -125,15 +123,16 @@ async function selectNextBatsman(interaction, remainingBatsmen, overNumber, inni
       return null;
     }
 
-    const batsman = remainingBatsmen[0];
+    // CRITICAL FIX: Don't auto-select during wicket! This was causing the same batsman issue
+    // Instead, wait for user input - but since timeout happened, use first available
+    const batsman = availableBatsmen[0];
     await promptMessage.edit({
-      content: `⏰ Timeout! **${battingTeam.teamName}:** Auto-selected: ${batsman}`,
+      content: `⚠️ **${battingTeam.teamName}:** No selection made. Defaulting to ${batsman} (Auto-selected)`,
       components: []
     });
     return batsman;
   }
 }
-
 function getAvailableBowlers(team, playersMap) {
   return team.players.filter(name => {
     const player = playersMap.get(name.toLowerCase().trim());

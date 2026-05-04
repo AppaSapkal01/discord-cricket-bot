@@ -105,7 +105,9 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         battingOrder: [],
         strikerIdx: 0,
         nonStrikerIdx: 1,
-        nextBatsmanIdx: 2
+        nextBatsmanIdx: 2,
+        currentInnings: 1,
+        teamABattedFirst: (battingTeam.teamName === teamA.teamName)
       };
 
       // CREATE MATCH

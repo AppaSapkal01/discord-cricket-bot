@@ -24,13 +24,15 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
 
   let overCompleted = 0;
   
-  for (let overNumber = 1; overNumber <= maxOvers; overNumber++) {
+  for (let overNumber = 0; overNumber < maxOvers; overNumber++) {
     let currentMatch = matchManager.getMatch(channelId);
     if (!currentMatch || !currentMatch.isActive || currentMatch.stopped) {
+      const displayOversCompleted = overCompleted + 1;
+
       return { 
         runs: matchState.runs, 
         wickets: matchState.wickets, 
-        overs: overCompleted,
+        overs: displayOversCompleted,
         batsmanStats: matchState.batsmanStats,
         bowlerStats: matchState.bowlerStats
       };
@@ -48,10 +50,11 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
     overCompleted = overNumber;
     
     if (result?.endReason === "match_stopped") {
+      const displayOversCompleted = overCompleted + 1;
       return { 
         runs: matchState.runs, 
         wickets: matchState.wickets, 
-        overs: overCompleted,
+        overs: displayOversCompleted,
         batsmanStats: matchState.batsmanStats,
         bowlerStats: matchState.bowlerStats
       };
@@ -64,12 +67,14 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
     await sleep(2000);
   }
 
+  const displayOversCompleted = overCompleted + 1;
+
   // End of innings message
   let endMessage = `\n🏁 **END OF INNINGS ${inningNumber}** 🏁\n`;
   endMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  endMessage += `📊 **${matchState.battingTeam.teamName}:** ${matchState.runs}/${matchState.wickets} (${overCompleted} overs)\n`;
+  endMessage += `📊 **${matchState.battingTeam.teamName}:** ${matchState.runs}/${matchState.wickets} (${displayOversCompleted} overs)\n`;
   if (overCompleted > 0) {
-    endMessage += `📈 Run Rate: ${(matchState.runs / overCompleted).toFixed(2)}\n`;
+    endMessage += `📈 Run Rate: ${(matchState.runs / displayOversCompleted).toFixed(2)}\n`;
   }
   endMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   
@@ -82,7 +87,7 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
     matchState.battingTeam.teamName, 
     matchState.runs, 
     matchState.wickets, 
-    overCompleted,
+    displayOversCompleted,
     matchState.batsmanStats, 
     matchState.bowlerStats, 
     target
@@ -93,7 +98,7 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
   return { 
     runs: matchState.runs, 
     wickets: matchState.wickets, 
-    overs: overCompleted,
+    overs: displayOversCompleted,
     batsmanStats: matchState.batsmanStats,
     bowlerStats: matchState.bowlerStats
   };

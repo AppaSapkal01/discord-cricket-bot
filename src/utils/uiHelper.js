@@ -1,4 +1,3 @@
-// utils/uiHelper.js
 const { EmbedBuilder } = require("discord.js");
 
 function createInningsScorecardEmbed(inningNumber, teamName, runs, wickets, overs, batsmanStats, bowlerStats, target = null) {
@@ -19,79 +18,86 @@ function createInningsScorecardEmbed(inningNumber, teamName, runs, wickets, over
   }
   embed.setDescription(scoreText);
 
-  // BATTING TABLE
+  // BATTING TABLE - Only show batsmen who actually batted
   let battingText = "```\n";
-  battingText += "┌──────────────────────────────────────────────────┐\n";
-  battingText += "│ Batsman              │ Runs│ Bls│ 4s│ 6s│ SR    │\n";
-  battingText += "├──────────────────────────────────────────────────┤\n";
+  battingText += "┌────────────────────────────────────────────────────────────┐\n";
+  battingText += "│ Batsman                      │ Runs│ Bls│ 4s│ 6s│ SR      │\n";
+  battingText += "├────────────────────────────────────────────────────────────┤\n";
   
-  const sortedBatsmen = Object.values(batsmanStats).sort((a, b) => b.runs - a.runs);
-  let battedCount = 0;
+  // Get only batsmen who have faced balls OR scored runs
+  const battedPlayers = Object.values(batsmanStats)
+    .filter(b => b.balls > 0 || b.runs > 0)
+    .sort((a, b) => b.runs - a.runs);
   
-  for (const batsman of sortedBatsmen) {
-    if (batsman.runs > 0 || batsman.balls > 0) {
-      battedCount++;
-      const sr = batsman.balls > 0 ? ((batsman.runs / batsman.balls) * 100).toFixed(1) : "0.0";
-      const name = batsman.name.length > 20 ? batsman.name.substring(0, 17) + "..." : batsman.name;
-      battingText += `│ ${name.padEnd(20)} │ ${batsman.runs.toString().padStart(3)} │ ${batsman.balls.toString().padStart(3)} │ ${batsman.fours.toString().padStart(2)} │ ${batsman.sixes.toString().padStart(2)} │ ${sr.padStart(5)} │\n`;
-    }
+  for (const batsman of battedPlayers) {
+    const sr = batsman.balls > 0 ? ((batsman.runs / batsman.balls) * 100).toFixed(1) : "0.0";
+    const name = batsman.name.length > 25 ? batsman.name.substring(0, 22) + "..." : batsman.name;
+    const dismissal = batsman.dismissed ? "†" : "*";
+    
+    battingText += `│ ${(name + dismissal).padEnd(25)} │ ${batsman.runs.toString().padStart(3)} │ ${batsman.balls.toString().padStart(3)} │ ${batsman.fours.toString().padStart(2)} │ ${batsman.sixes.toString().padStart(2)} │ ${sr.padStart(6)} │\n`;
   }
   
-  // Show yet to bat players
-  const allPlayers = Object.values(batsmanStats);
-  const yetToBat = allPlayers.filter(p => p.runs === 0 && p.balls === 0);
+  // Add separator and "Did Not Bat" section if there are unused players
+  const didNotBat = Object.values(batsmanStats)
+    .filter(b => b.balls === 0 && b.runs === 0)
+    .map(b => b.name);
   
-  if (yetToBat.length > 0 && battedCount < 11) {
-    battingText += "├──────────────────────────────────────────────────┤\n";
-    battingText += "│ 📋 Yet to bat:                                      │\n";
-    const yetToBatNames = yetToBat.map(p => p.name).join(", ");
-    if (yetToBatNames.length > 40) {
-      battingText += `│ ${yetToBatNames.substring(0, 40)}... │\n`;
+  if (didNotBat.length > 0 && battedPlayers.length < 11) {
+    battingText += "├────────────────────────────────────────────────────────────┤\n";
+    battingText += "│ 📋 DID NOT BAT                                              │\n";
+    // Format as bullet points in a single line or multiple lines
+    const dnbs = didNotBat.join(", ");
+    if (dnbs.length > 46) {
+      // Split into multiple lines if too long
+      const chunks = dnbs.match(/.{1,46}/g) || [];
+      for (const chunk of chunks) {
+        battingText += `│ ${chunk.padEnd(46)} │\n`;
+      }
     } else {
-      battingText += `│ ${yetToBatNames.padEnd(48)} │\n`;
+      battingText += `│ ${dnbs.padEnd(46)} │\n`;
     }
   }
   
-  battingText += "└──────────────────────────────────────────────────┘\n```";
+  battingText += "└────────────────────────────────────────────────────────────┘\n```";
   embed.addFields({ name: "📊 BATTING", value: battingText, inline: false });
 
   // BOWLING TABLE
   let bowlingText = "```\n";
-  bowlingText += "┌──────────────────────────────────────────────────┐\n";
-  bowlingText += "│ Bowler               │ Overs│ Runs│ Wkts│ Econ  │\n";
-  bowlingText += "├──────────────────────────────────────────────────┤\n";
+  bowlingText += "┌────────────────────────────────────────────────────────────┐\n";
+  bowlingText += "│ Bowler                       │ Overs│ Runs│ Wkts│ Econ    │\n";
+  bowlingText += "├────────────────────────────────────────────────────────────┤\n";
   
-  const sortedBowlers = Array.from(bowlerStats.values()).sort((a, b) => b.wickets - a.wickets);
-  let bowledCount = 0;
+  const bowlersWhoBowled = Array.from(bowlerStats.values())
+    .filter(b => b.overs > 0)
+    .sort((a, b) => b.wickets - a.wickets);
   
-  for (const bowler of sortedBowlers) {
-    if (bowler.overs > 0) {
-      bowledCount++;
-      const econ = bowler.overs > 0 ? (bowler.runs / bowler.overs).toFixed(2) : "0.00";
-      const name = bowler.name.length > 20 ? bowler.name.substring(0, 17) + "..." : bowler.name;
-      bowlingText += `│ ${name.padEnd(20)} │ ${bowler.overs.toString().padStart(4)} │ ${bowler.runs.toString().padStart(4)} │ ${bowler.wickets.toString().padStart(4)} │ ${econ.padStart(6)} │\n`;
-    }
+  for (const bowler of bowlersWhoBowled) {
+    const econ = bowler.overs > 0 ? (bowler.runs / bowler.overs).toFixed(2) : "0.00";
+    const name = bowler.name.length > 25 ? bowler.name.substring(0, 22) + "..." : bowler.name;
+    bowlingText += `│ ${name.padEnd(25)} │ ${bowler.overs.toString().padStart(4)} │ ${bowler.runs.toString().padStart(4)} │ ${bowler.wickets.toString().padStart(4)} │ ${econ.padStart(7)} │\n`;
   }
   
-  const yetToBowl = Array.from(bowlerStats.values()).filter(b => b.overs === 0);
-  if (yetToBowl.length > 0 && bowledCount < 5) {
-    bowlingText += "├──────────────────────────────────────────────────┤\n";
-    bowlingText += "│ 🎯 Yet to bowl:                                     │\n";
-    const yetToBowlNames = yetToBowl.map(b => b.name).join(", ");
-    if (yetToBowlNames.length > 40) {
-      bowlingText += `│ ${yetToBowlNames.substring(0, 40)}... │\n`;
+  // Show bowlers who didn't bowl
+  const bowlersWhoDidNotBowl = Array.from(bowlerStats.values())
+    .filter(b => b.overs === 0)
+    .map(b => b.name);
+  
+  if (bowlersWhoDidNotBowl.length > 0 && bowlersWhoBowled.length < 11) {
+    bowlingText += "├────────────────────────────────────────────────────────────┤\n";
+    bowlingText += "│ 🎯 DID NOT BOWL                                             │\n";
+    const dnbs = bowlersWhoDidNotBowl.join(", ");
+    if (dnbs.length > 46) {
+      const chunks = dnbs.match(/.{1,46}/g) || [];
+      for (const chunk of chunks) {
+        bowlingText += `│ ${chunk.padEnd(46)} │\n`;
+      }
     } else {
-      bowlingText += `│ ${yetToBowlNames.padEnd(48)} │\n`;
+      bowlingText += `│ ${dnbs.padEnd(46)} │\n`;
     }
   }
   
-  bowlingText += "└──────────────────────────────────────────────────┘\n```";
+  bowlingText += "└────────────────────────────────────────────────────────────┘\n```";
   embed.addFields({ name: "🎯 BOWLING", value: bowlingText, inline: false });
-
-  // Partnership info
-  if (inningNumber === 1 || (inningNumber === 2 && runs < target)) {
-    embed.setFooter({ text: `🏏 Live Match • Use /play-match to start new match` });
-  }
 
   return embed;
 }
@@ -128,7 +134,8 @@ function createMatchSummaryEmbed(innings1Stats, innings2Stats, teamA, teamB, win
   if (topBowlers1.length > 0) {
     innings1Text += `\n**🎯 Top Bowlers:**\n`;
     topBowlers1.forEach((b, i) => {
-      innings1Text += `${i+1}. ${b.name} - ${b.wickets}/${b.runs} (${b.overs} overs, Econ: ${(b.runs/b.overs).toFixed(2)})\n`;
+      const econ = (b.runs / b.overs).toFixed(2);
+      innings1Text += `${i+1}. ${b.name} - ${b.wickets}/${b.runs} (${b.overs} overs, Econ: ${econ})\n`;
     });
   }
 
@@ -159,7 +166,8 @@ function createMatchSummaryEmbed(innings1Stats, innings2Stats, teamA, teamB, win
   if (topBowlers2.length > 0) {
     innings2Text += `\n**🎯 Top Bowlers:**\n`;
     topBowlers2.forEach((b, i) => {
-      innings2Text += `${i+1}. ${b.name} - ${b.wickets}/${b.runs} (${b.overs} overs, Econ: ${(b.runs/b.overs).toFixed(2)})\n`;
+      const econ = (b.runs / b.overs).toFixed(2);
+      innings2Text += `${i+1}. ${b.name} - ${b.wickets}/${b.runs} (${b.overs} overs, Econ: ${econ})\n`;
     });
   }
 
@@ -224,6 +232,10 @@ function createCurrentPartnershipEmbed(matchState) {
   const strikerStats = matchState.batsmanStats[striker.toLowerCase().trim()] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
   const nonStrikerStats = matchState.batsmanStats[nonStriker.toLowerCase().trim()] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
   
+  // Convert internal 0-based over number to display 1-based over number
+  const displayOverNumber = (matchState.currentOver || 0) + 1;
+  console.log('displayOverNumber', displayOverNumber)
+  console.log('matchState.currentOver', matchState.currentOver)
   const embed = new EmbedBuilder()
     .setTitle("🏏 CURRENT PARTNERSHIP")
     .setColor(0x00AE86)
@@ -249,7 +261,7 @@ function createCurrentPartnershipEmbed(matchState) {
         inline: true 
       }
     )
-    .setFooter({ text: `Over ${matchState.currentOver} • Innings ${matchState.currentInnings}` });
+    .setFooter({ text: `Over ${displayOverNumber} • Innings ${matchState.currentInnings}` });
   
   return embed;
 }

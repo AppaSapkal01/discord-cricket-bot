@@ -26,7 +26,7 @@ async function getAllPlayers() {
   return withRetry(async () => {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: PRIVATE_PLAYERS_SPREADSHEET_ID,
-      range: "Player Database!A2:P",
+      range: "Player Database!A2:Q",
     });
     const rows = res.data.values || [];
     return rows.map(row => ({
@@ -46,6 +46,7 @@ async function getAllPlayers() {
       control: parseInt(row[13]) || 0,
       economy: parseInt(row[14]) || 0,
       deathBowling: parseInt(row[15]) || 0,
+      form: parseInt(row[16]) || 50,
     }));
   });
 }
@@ -53,19 +54,19 @@ async function getAllPlayers() {
 // Case-insensitive player matching
 function findPlayerByName(players, searchName) {
   const searchLower = searchName.toLowerCase().trim();
-  
+
   // 1. Exact match (case insensitive)
   let player = players.find(p => p.name.toLowerCase() === searchLower);
   if (player) return { player, matchType: "exact" };
-  
+
   // 2. Partial match (searchName is inside player name)
   player = players.find(p => p.name.toLowerCase().includes(searchLower));
   if (player) return { player, matchType: "partial" };
-  
+
   // 3. Player name is inside searchName
   player = players.find(p => searchLower.includes(p.name.toLowerCase()));
   if (player) return { player, matchType: "partial" };
-  
+
   return null;
 }
 
@@ -76,11 +77,11 @@ function matchPlayers(playersList, teamPlayerNames) {
     notFound: [],
     partialMatches: []
   };
-  
+
   for (const teamName of teamPlayerNames) {
     const trimmedName = teamName.toString().trim();
     const match = findPlayerByName(playersList, trimmedName);
-    
+
     if (match) {
       results.matched.push({
         teamInput: trimmedName,
@@ -98,7 +99,7 @@ function matchPlayers(playersList, teamPlayerNames) {
       results.notFound.push(trimmedName);
     }
   }
-  
+
   return results;
 }
 
@@ -131,7 +132,7 @@ async function createTeam(teamName, ownerId) {
   return withRetry(async () => {
     const existing = await getTeamByName(teamName);
     if (existing) throw new Error("Team name already exists");
-    
+
     await sheets.spreadsheets.values.append({
       spreadsheetId: PUBLIC_TEAMS_SPREADSHEET_ID,
       range: "Teams!A:C",
@@ -153,10 +154,10 @@ async function updateTeamPlayers(teamName, players) {
       }
     }
     if (rowIndex === -1) throw new Error("Team not found");
-    
+
     const team = rows[rowIndex - 2];
     const values = [[team[0], team[1], ...players.slice(0, 11)]];
-    
+
     await sheets.spreadsheets.values.update({
       spreadsheetId: PUBLIC_TEAMS_SPREADSHEET_ID,
       range: `Teams!A${rowIndex}:M${rowIndex}`,
@@ -214,7 +215,7 @@ async function getAllStadiums() {
   return withRetry(async () => {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: PRIVATE_PLAYERS_SPREADSHEET_ID,
-      range: "Stadium!A2:I", // A to I columns
+      range: "Stadium!A2:J", // A to I columns
     });
     const rows = res.data.values || [];
     return rows.map(row => ({
@@ -226,6 +227,7 @@ async function getAllStadiums() {
       turn: parseInt(row[5]) || 0,
       batting: parseInt(row[6]) || 0,
       boundarySize: parseInt(row[7]) || 0,
+      dew: parseInt(row[8]) || 0,
       type: row[8] ? row[8].toString().trim() : "Neutral",
     }));
   });
@@ -255,7 +257,7 @@ module.exports = {
   saveMatchResult,
   getPlayerStatsForAdmin,
   getPlayerBasicInfo,
-   getAllStadiums,    // NEW
+  getAllStadiums,    // NEW
   getStadiumByName,
   getRandomStadium,
 };
