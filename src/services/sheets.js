@@ -1,7 +1,22 @@
 // services/sheets.js
 const { google } = require("googleapis");
+
+if (!process.env.GOOGLE_CREDENTIALS) {
+  throw new Error("GOOGLE_CREDENTIALS is missing in Render environment variables");
+}
+
+let credentials;
+
+try {
+  credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+} catch (err) {
+  throw new Error("GOOGLE_CREDENTIALS is not valid JSON");
+}
+
+credentials.private_key = credentials.private_key.replace(/\\n/g, "\n");
+
 const auth = new google.auth.GoogleAuth({
-  keyFile: "credentials.json",
+  credentials,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 const sheets = google.sheets({ version: "v4", auth });
@@ -26,7 +41,7 @@ async function getAllPlayers() {
   return withRetry(async () => {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: PRIVATE_PLAYERS_SPREADSHEET_ID,
-      range: "Player Database!A2:Q",
+      range: "Player Database!A2:R",
     });
     const rows = res.data.values || [];
     return rows.map(row => ({
@@ -46,7 +61,8 @@ async function getAllPlayers() {
       control: parseInt(row[13]) || 0,
       economy: parseInt(row[14]) || 0,
       deathBowling: parseInt(row[15]) || 0,
-      form: parseInt(row[16]) || 50,
+      battingForm: parseInt(row[16]) || 50,
+      bowlingForm: parseInt(row[17]) || 50,
     }));
   });
 }
@@ -228,7 +244,7 @@ async function getAllStadiums() {
       batting: parseInt(row[6]) || 0,
       boundarySize: parseInt(row[7]) || 0,
       dew: parseInt(row[8]) || 0,
-      type: row[8] ? row[8].toString().trim() : "Neutral",
+      type: row[9] ? row[9].toString().trim() : "Neutral",
     }));
   });
 }
