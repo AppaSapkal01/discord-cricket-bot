@@ -152,7 +152,29 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
     }
 
     // Normal ball delivery or free hit
-    const outcome = simulateBall(striker, bowler, stadium, overNumber, isFreeHit, momentumFactors);
+    // Calculate required rate (only for 2nd innings)
+    let requiredRate = 0;
+    if (target) {
+      const ballsLeft = (20 - overNumber) * 6 - ballsBowled;
+      const runsNeeded = target - matchState.runs;
+      requiredRate = ballsLeft > 0 ? (runsNeeded / ballsLeft) * 6 : 0;
+    }
+
+    // Build context object
+    const context = {
+      over: overNumber,
+      wickets: matchState.wickets,
+      requiredRate,
+      dew: stadium.dew > 5 && inningNumber === 2
+    };
+
+    const outcome = simulateBall(
+      striker,
+      bowler,
+      stadium,
+      context,
+      isFreeHit
+    );
 
     // Reset free hit after this ball
     const currentFreeHit = isFreeHit;
@@ -160,8 +182,13 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
 
     if (outcome.type === "wicket") {
       // CRITICAL FIX: Record which batsman got out BEFORE changing anything
-      const outBatsman = strikerName;
+      const outBatsman = strikerName.trim();
       const outBatsmanKey = outBatsman.toLowerCase().trim();
+
+      // console.log(`[WICKET] Out batsman: ${strikerName}`);
+      // console.log(`[WICKET] Before - battingOrder: ${matchState.battingOrder.join(', ')}`);
+      // console.log(`[WICKET] Before - nextBatsmanIdx: ${matchState.nextBatsmanIdx}`);
+      // console.log(`[WICKET] Before - dismissedBatsmen: ${Array.from(matchState.dismissedBatsmen).join(', ')}`);
 
       // WICKET!
       matchState.wickets++;
@@ -175,7 +202,12 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       bowlerStats.wickets++;
 
       // Mark batsman as dismissed
-      matchState.dismissedBatsmen.add(outBatsman);
+      matchState.dismissedBatsmen.add(outBatsmanKey);
+      // console.log(`[WICKET] After add - dismissedBatsmen: ${Array.from(matchState.dismissedBatsmen).join(', ')}`);
+
+      if (matchState.batsmanStats[outBatsmanKey]) {
+        matchState.batsmanStats[outBatsmanKey].out = true;
+      }
 
       const wicketRuns = matchState.batsmanStats[outBatsmanKey]?.runs || 0;
       const wicketBalls = matchState.batsmanStats[outBatsmanKey]?.balls || 0;
@@ -209,6 +241,8 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       // CRITICAL FIX: Get next batsman correctly
       // The next batsman comes from battingOrder at nextBatsmanIdx
       const remainingBatsmen = matchState.battingOrder.slice(matchState.nextBatsmanIdx);
+      // console.log(`[WICKET] Remaining batsmen from slice: ${remainingBatsmen.join(', ')}`);
+
 
       // Call the selection handler to show the menu
       const newBatsman = await selectNextBatsman(
@@ -236,7 +270,7 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
         const fallbackKey = fallbackBatsman.toLowerCase().trim();
         if (!matchState.batsmanStats[fallbackKey]) {
           matchState.batsmanStats[fallbackKey] = {
-            name: fallbackBatsman, runs: 0, balls: 0, fours: 0, sixes: 0
+            name: fallbackBatsman, runs: 0, balls: 0, fours: 0, sixes: 0, out: false
           };
         }
 
@@ -251,7 +285,7 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       const newBatsmanKey = newBatsman.toLowerCase().trim();
       if (!matchState.batsmanStats[newBatsmanKey]) {
         matchState.batsmanStats[newBatsmanKey] = {
-          name: newBatsman, runs: 0, balls: 0, fours: 0, sixes: 0
+          name: newBatsman, runs: 0, balls: 0, fours: 0, sixes: 0, out: false
         };
       }
 
@@ -260,7 +294,9 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       // Instead, we need to track that this position is now occupied by newBatsman
       // For now, we'll update battingOrder at strikerIdx (this is acceptable)
       matchState.battingOrder[matchState.strikerIdx] = newBatsman;
-
+      // console.log(`[WICKET AFTER] Updated battingOrder: ${matchState.battingOrder.join(', ')}`);
+      // console.log(`[WICKET AFTER] nextBatsmanIdx still: ${matchState.nextBatsmanIdx}`);
+      // console.log(`[WICKET AFTER] dismissedBatsmen: ${Array.from(matchState.dismissedBatsmen).join(', ')}`);
       commentaryText += `🏏 **${newBatsman}** walks out to the crease\n`;
       await overMessage.edit(commentaryText);
       await sleep(1500);
@@ -296,7 +332,7 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
     // Update batsman stats
     const strikerKey = strikerName.toLowerCase().trim();
     if (!matchState.batsmanStats[strikerKey]) {
-      matchState.batsmanStats[strikerKey] = { name: strikerName, runs: 0, balls: 0, fours: 0, sixes: 0 };
+      matchState.batsmanStats[strikerKey] = { name: strikerName, runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
     }
     matchState.batsmanStats[strikerKey].runs += outcome.runs;
     matchState.batsmanStats[strikerKey].balls++;

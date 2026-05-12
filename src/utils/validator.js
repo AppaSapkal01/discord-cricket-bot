@@ -1,5 +1,5 @@
 // utils/validator.js
-const { matchPlayers } = require("../services/sheets");
+const { matchPlayersExact } = require("../services/sheets");
 
 function getPlayerCategory(role) {
   const r = role.toLowerCase();
@@ -23,7 +23,7 @@ async function validateTeam(team, playersList) {
   }
 
   // 2. Match all players against database
-  const matchResults = matchPlayers(playersList, team.players);
+  const matchResults = matchPlayersExact(playersList, team.players);
   
   // 3. Check for unfound players
   if (matchResults.notFound.length > 0) {

@@ -92,14 +92,18 @@ module.exports = {
     });
 
     collector.on("collect", async (menuInteraction) => {
-      await menuInteraction.deferUpdate();
       const selectedName = menuInteraction.values[0];
-      const selectedStadium = sortedStadiums.find(s => s.name === selectedName);
+      const selectedStadium = sortedStadiums.find(
+        s => s.name === selectedName
+      );
 
       if (selectedStadium) {
         const embed = createStadiumEmbed(selectedStadium);
-        // Changed from flags: 64 to regular followUp (visible to everyone)
-        await menuInteraction.followUp({ embeds: [embed] });
+
+        await menuInteraction.update({
+          embeds: [embed],
+          components: [selectMenu]
+        });
       }
     });
 

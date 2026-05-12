@@ -1,5 +1,13 @@
 // match/resultHandler.js
 const { createMatchSummaryEmbed, createInningsScorecardEmbed } = require("../utils/uiHelper");
+const {
+  updateBattingStats,
+  updateBowlingStats
+} = require("../services/playerStatsService");
+
+const {
+  buildFinalScorecard
+} = require("../utils/buildFinalScorecard");
 
 async function saveAndAnnounceResult(interaction, matchState, innings1Stats, innings2Stats, target) {
   const { teamA, teamB, stadium } = matchState;
@@ -71,6 +79,27 @@ async function saveAndAnnounceResult(interaction, matchState, innings1Stats, inn
   winnerMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
   await interaction.channel.send(winnerMessage);
+
+  const finalScorecard = buildFinalScorecard(
+    matchState,
+    innings1Stats,
+    innings2Stats
+  );
+
+  const allBatters = [
+    ...finalScorecard.innings[0].batsmen,
+    ...finalScorecard.innings[1].batsmen
+  ];
+
+  const allBowlers = [
+    ...finalScorecard.innings[0].bowlers,
+    ...finalScorecard.innings[1].bowlers
+  ];
+
+  await updateBattingStats(allBatters);
+  await updateBowlingStats(allBowlers);
+
+  
 
   return { winner, wonBy };
 }

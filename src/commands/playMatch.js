@@ -1,12 +1,13 @@
 // play-match.js
 const { SlashCommandBuilder } = require("discord.js");
-const { getTeamByName, getAllPlayers, getRandomStadium, getStadiumByName, saveMatchResult } = require("../services/sheets");
+const { getTeamByName, getAllPlayers, getRandomStadium, getStadiumByName, saveMatchResult, recalculateAllTeamsNRR } = require("../services/sheets");
 const { validateTeam } = require("../utils/validator");
 const { handleToss } = require("../match/tossHandler");
 const { selectOpeners } = require("../match/selectionHandler");
 const { simulateInnings } = require("../match/inningsHandler");
 const { saveAndAnnounceResult } = require("../match/resultHandler");
 const matchManager = require("../managers/matchManager");
+
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,7 +20,7 @@ module.exports = {
   async execute(interaction) {
     // Store channel reference at the very beginning
     const channel = interaction.channel;
-    
+
     try {
       await interaction.deferReply();
 
@@ -106,7 +107,6 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         strikerIdx: 0,
         nonStrikerIdx: 1,
         nextBatsmanIdx: 2,
-        currentInnings: 1,
         teamABattedFirst: (battingTeam.teamName === teamA.teamName)
       };
 
@@ -115,34 +115,42 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
 
       // SELECT OPENERS
       const openers = await selectOpeners(interaction, battingTeam, 1);
-      
+
       const currentMatch = matchManager.getMatch(interaction.channelId);
       if (!currentMatch || !currentMatch.isActive || currentMatch.stopped || !openers) {
-        // FIX: Use channel.send instead of followUp
         await channel.send("🛑 Match was stopped.");
         return;
       }
 
       // Update match state with batting order
-      matchState.battingOrder = [openers[0], openers[1], ...battingTeam.players.filter(p => p !== openers[0] && p !== openers[1])];
+      matchState.battingOrder = [
+        openers[0].trim(),
+        openers[1].trim(),
+        ...battingTeam.players.filter(
+          p => p.trim() !== openers[0].trim() && p.trim() !== openers[1].trim()
+        ).map(p => p.trim())
+      ];
       matchState.strikerIdx = 0;
       matchState.nonStrikerIdx = 1;
       matchState.nextBatsmanIdx = 2;
 
+      console.log(`[INIT] Batting order: ${matchState.battingOrder.join(', ')}`);
+      console.log(`[INIT] nextBatsmanIdx: ${matchState.nextBatsmanIdx}`);
+      console.log(`[INIT] strikerIdx: ${matchState.strikerIdx}, nonStrikerIdx: ${matchState.nonStrikerIdx}`);
+
       matchState.battingOrder.forEach(name => {
-        matchState.batsmanStats[name.toLowerCase().trim()] = { 
-          name, 
-          runs: 0, 
-          balls: 0, 
-          fours: 0, 
-          sixes: 0 
+        matchState.batsmanStats[name.toLowerCase().trim()] = {
+          name,
+          runs: 0,
+          balls: 0,
+          fours: 0,
+          sixes: 0
         };
       });
 
       matchManager.updateMatch(interaction.channelId, matchState);
 
       // INNINGS 1
-      // FIX: Use channel.send instead of followUp
       await channel.send(`🥇 **INNINGS 1: ${battingTeam.teamName} batting**`);
 
       const innings1 = await simulateInnings(interaction, matchState, playersMap, stadium, 1, null);
@@ -163,7 +171,6 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         bowlerStats: new Map(innings1.bowlerStats)
       };
 
-      // FIX: Use channel.send instead of followUp
       await channel.send(`📊 **${battingTeam.teamName}:** ${innings1.runs}/${innings1.wickets} (${innings1.overs} overs)`);
 
       // INNINGS 2
@@ -171,7 +178,6 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
       const newBattingTeam = bowlingTeam;
       const newBowlingTeam = battingTeam;
 
-      // FIX: Use channel.send instead of followUp
       await channel.send(`🥈 **INNINGS 2: ${newBattingTeam.teamName} needs ${target} runs to win`);
 
       // Reset match state for innings 2
@@ -209,12 +215,12 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
       matchState.nextBatsmanIdx = 2;
 
       matchState.battingOrder.forEach(name => {
-        matchState.batsmanStats[name.toLowerCase().trim()] = { 
-          name, 
-          runs: 0, 
-          balls: 0, 
-          fours: 0, 
-          sixes: 0 
+        matchState.batsmanStats[name.toLowerCase().trim()] = {
+          name,
+          runs: 0,
+          balls: 0,
+          fours: 0,
+          sixes: 0
         };
       });
 
@@ -238,38 +244,68 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
 
       // RESULT
       const { winner, wonBy } = await saveAndAnnounceResult(
-        interaction, 
-        matchState, 
-        innings1Stats, 
-        innings2Stats, 
+        interaction,
+        matchState,
+        innings1Stats,
+        innings2Stats,
         target
       );
 
-      // Save match result to database
+      // ========== FIX: Determine actual scores based on who batted first ==========
+      let teamAScore, teamAWickets, teamAOvers;
+      let teamBScore, teamBWickets, teamBOvers;
+
+      if (matchState.teamABattedFirst) {
+        // Team A batted first (innings 1), Team B batted second (innings 2)
+        teamAScore = innings1.runs;
+        teamAWickets = innings1.wickets;
+        teamAOvers = innings1.overs;
+
+        teamBScore = innings2.runs;
+        teamBWickets = innings2.wickets;
+        teamBOvers = innings2.overs;
+
+        console.log(`📋 Match data: ${teamA.teamName} batted first → ${teamAScore}/${teamAWickets} (${teamAOvers} overs), ${teamB.teamName} scored ${teamBScore}/${teamBWickets} (${teamBOvers} overs)`);
+      } else {
+        // Team B batted first (innings 1), Team A batted second (innings 2)
+        teamAScore = innings2.runs;
+        teamAWickets = innings2.wickets;
+        teamAOvers = innings2.overs;
+
+        teamBScore = innings1.runs;
+        teamBWickets = innings1.wickets;
+        teamBOvers = innings1.overs;
+
+        console.log(`📋 Match data: ${teamB.teamName} batted first → ${teamBScore}/${teamBWickets} (${teamBOvers} overs), ${teamA.teamName} scored ${teamAScore}/${teamAWickets} (${teamAOvers} overs)`);
+      }
+
+      // Save match result to database with correct team scores
       await saveMatchResult({
         teamA: teamA.teamName,
         teamB: teamB.teamName,
-        scoreA: innings1.runs,
-        scoreB: innings2.runs,
-        wicketsA: innings1.wickets,
-        wicketsB: innings2.wickets,
-        oversA: innings1.overs,
-        oversB: innings2.overs,
+        scoreA: teamAScore,
+        wicketsA: teamAWickets,
+        oversA: teamAOvers,
+        scoreB: teamBScore,
+        wicketsB: teamBWickets,
+        oversB: teamBOvers,
         winner,
         wonBy,
         ground: stadium.name,
         timestamp: Date.now()
-      }).catch(err => console.error("Error saving:", err));
+      }).catch(err => console.error("Error saving match result:", err));
+
+      // Recalculate NRR to ensure consistency
+      // await recalculateAllTeamsNRR();
 
       matchManager.deleteMatch(interaction.channelId);
-      
-      // FIX: Use channel.send instead of followUp (THIS WAS THE MAIN ERROR AT LINE 252)
+
       await channel.send(`✅ Match completed! Use \`/play-match\` again to start a new match.`);
-      
+
       // Optional: Try to update original reply (may fail if >15 min, but that's fine)
       try {
-        await interaction.editReply({ 
-          content: `🏏 Match underway! Final results posted above.` 
+        await interaction.editReply({
+          content: `🏏 Match underway! Final results posted above.`
         });
       } catch (editError) {
         // Token expired - that's fine, we already sent results
@@ -278,7 +314,7 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
 
     } catch (error) {
       console.error("Match error:", error);
-      
+
       if (error.code === 50027) {
         try {
           await channel.send('❌ Match stopped due to timeout. Please start a new match.');
@@ -296,7 +332,7 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
           await channel.send(`❌ Error: ${error.message}`);
         }
       }
-      
+
       matchManager.deleteMatch(interaction.channelId);
     }
   }

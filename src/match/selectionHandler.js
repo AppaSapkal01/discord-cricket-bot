@@ -2,7 +2,47 @@
 const { ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require("discord.js");
 const matchManager = require("../managers/matchManager");
 
-const SELECTION_TIMEOUT = 15000; // 30 seconds
+const SELECTION_TIMEOUT = 15000; // 15 seconds
+
+// Helper function to get bowler type emoji
+function getBowlerEmoji(player, playersMap) {
+  if (!player || !playersMap) return "🎯";
+
+  const playerData = playersMap.get(player.toLowerCase().trim());
+  if (!playerData) return "🎯";
+
+  const role = (playerData.role || "").toLowerCase();
+
+  if (role.includes("fast") || role === "fast bowler") {
+    return "⚡"; // Fast bowler
+  } else if (role.includes("spin") || role === "spin bowler") {
+    return "🌀"; // Spin bowler
+  } else if (role.includes("allrounder")) {
+    // Check allrounder sub-type
+    if (role.includes("fast") || role.includes("pace")) {
+      return "⚡🌀"; // Fast bowling allrounder
+    } else if (role.includes("spin")) {
+      return "🌀⚡"; // Spin bowling allrounder
+    }
+    return "🌀"; // Generic allrounder
+  }
+
+  return "🎯"; // Default for unknown types
+}
+
+// Helper function to format bowler display with emoji
+function formatBowlerName(name, playersMap, matchState = null) {
+  const emoji = getBowlerEmoji(name, playersMap);
+  let display = `${emoji} ${name}`;
+
+  // Add overs bowled info if matchState provided
+  if (matchState && matchState.bowlerOvers) {
+    const oversBowled = matchState.bowlerOvers.get(name) || 0;
+    display += ` (${oversBowled}/4)`;
+  }
+
+  return display;
+}
 
 async function selectOpeners(interaction, team, inningNumber = 1) {
   const channelId = interaction.channelId;
@@ -66,6 +106,13 @@ async function selectNextBatsman(interaction, remainingBatsmen, overNumber, inni
   const channelId = interaction.channelId;
   const battingTeam = matchState.battingTeam;
 
+  // console.log(`[SELECT NEXT] Called with remainingBatsmen: ${remainingBatsmen.join(', ')}`);
+  // console.log(`[SELECT NEXT] Current striker: ${matchState.battingOrder[matchState.strikerIdx]}`);
+  // console.log(`[SELECT NEXT] Current nonStriker: ${matchState.battingOrder[matchState.nonStrikerIdx]}`);
+  // console.log(`[SELECT NEXT] nextBatsmanIdx: ${matchState.nextBatsmanIdx}`);
+  // console.log(`[SELECT NEXT] Full battingOrder: ${matchState.battingOrder.join(', ')}`);
+  // console.log(`[SELECT NEXT] dismissedBatsmen: ${Array.from(matchState.dismissedBatsmen).join(', ')}`);
+
   const currentMatch = matchManager.getMatch(channelId);
   if (!currentMatch || !currentMatch.isActive || currentMatch.stopped) {
     return null;
@@ -73,15 +120,20 @@ async function selectNextBatsman(interaction, remainingBatsmen, overNumber, inni
 
   // Filter out batsmen who are currently batting or dismissed
   const availableBatsmen = remainingBatsmen.filter(name => {
+    const trimmedName = name.trim();
     // Don't show batsmen who are currently batting
-    const isCurrentlyBatting = name === matchState.battingOrder[matchState.strikerIdx] ||
-      name === matchState.battingOrder[matchState.nonStrikerIdx];
+    const isCurrentlyBatting = trimmedName === matchState.battingOrder[matchState.strikerIdx] ||
+      trimmedName === matchState.battingOrder[matchState.nonStrikerIdx];
 
     // Don't show dismissed batsmen
-    const isDismissed = matchState.dismissedBatsmen.has(name);
+    const isDismissed = matchState.dismissedBatsmen.has(trimmedName);
+
+    // console.log(`[FILTER] ${trimmedName}: currentlyBatting=${isCurrentlyBatting}, dismissed=${isDismissed}`);
 
     return !isCurrentlyBatting && !isDismissed;
   });
+  // console.log(`[FILTER] Available batsmen after filter: ${availableBatsmen.join(', ')}`);
+
 
   if (availableBatsmen.length === 0) return null;
 
@@ -133,6 +185,7 @@ async function selectNextBatsman(interaction, remainingBatsmen, overNumber, inni
     return batsman;
   }
 }
+
 function getAvailableBowlers(team, playersMap) {
   return team.players.filter(name => {
     const player = playersMap.get(name.toLowerCase().trim());
@@ -150,32 +203,59 @@ async function selectBowlerForOver(interaction, availableBowlers, overNumber, in
     return null;
   }
 
-  // Show bowler restrictions info
-
+  // Create options with emojis for bowler types
   const bowlerOptions = availableBowlers.map(name => {
     const oversBowled = matchState.bowlerOvers?.get(name) || 0;
     const remaining = 4 - oversBowled;
     const bowlerStats = matchState.bowlerStats?.get(name);
-    let statsText = `${oversBowled}/4 overs left: ${remaining}`;
+
+    // Get emoji for bowler type
+    const emoji = getBowlerEmoji(name, playersMap);
+
+    // Build description with stats
+    let description = `${oversBowled}/4 overs left: ${remaining}`;
     if (bowlerStats && bowlerStats.runs > 0) {
-      statsText += ` | Runs: ${bowlerStats.runs} | Wkts: ${bowlerStats.wickets}`;
+      description += ` | ${bowlerStats.runs}/${bowlerStats.wickets}`;
     }
+
     return {
       label: name,
       value: name,
-      description: statsText
+      description: description,
+      emoji: {
+        name: emoji === "⚡" ? "⚡" : emoji === "🌀" ? "🌀" : "🎯"
+      }
     };
   });
 
   const selectMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`bowler_${inningNumber}_${overNumber}_${Date.now()}`)
-      .setPlaceholder("Select bowler for this over")
+      .setPlaceholder("⚡ Select bowler (Fast:⚡ | Spin:🌀)")
       .addOptions(bowlerOptions.slice(0, 25))
   );
 
+  // Create info message showing available bowler types
+  const fastBowlers = availableBowlers.filter(name => {
+    const emoji = getBowlerEmoji(name, playersMap);
+    return emoji === "⚡";
+  });
+
+  const spinBowlers = availableBowlers.filter(name => {
+    const emoji = getBowlerEmoji(name, playersMap);
+    return emoji === "🌀";
+  });
+
+  let typeInfo = "";
+  if (fastBowlers.length > 0) {
+    typeInfo += `⚡ Fast Bowlers: ${fastBowlers.join(", ")}\n`;
+  }
+  if (spinBowlers.length > 0) {
+    typeInfo += `🌀 Spin Bowlers: ${spinBowlers.join(", ")}`;
+  }
+
   const promptMessage = await interaction.channel.send({
-    content: `**${bowlingTeam.teamName}:** Select your bowler for over ${overNumber} (15s to respond)`,
+    content: `**${bowlingTeam.teamName}:** Select your bowler for over ${overNumber} (15s to respond)\n${typeInfo ? `\n${typeInfo}` : ""}`,
     components: [selectMenu]
   });
 
@@ -195,9 +275,10 @@ async function selectBowlerForOver(interaction, availableBowlers, overNumber, in
     const bowler = choice.values[0];
     const selectedBy = choice.user.username;
     const oversBowled = (matchState.bowlerOvers?.get(bowler) || 0) + 1;
+    const bowlerEmoji = getBowlerEmoji(bowler, playersMap);
 
     await promptMessage.edit({
-      content: `✅ **${bowlingTeam.teamName}:** ${bowler} is the new bowler (selected by ${selectedBy}) | Overs: ${oversBowled}/4`,
+      content: `✅ **${bowlingTeam.teamName}:** ${bowlerEmoji} ${bowler} is the new bowler (selected by ${selectedBy}) | Overs: ${oversBowled}/4`,
       components: []
     });
 
@@ -208,12 +289,14 @@ async function selectBowlerForOver(interaction, availableBowlers, overNumber, in
       return null;
     }
 
-    const bowler = availableBowlers[Math.floor(Math.random() * availableBowlers.length)];
+    const randomBowler = availableBowlers[Math.floor(Math.random() * availableBowlers.length)];
+    const randomEmoji = getBowlerEmoji(randomBowler, playersMap);
+
     await promptMessage.edit({
-      content: `⏰ Timeout! **${bowlingTeam.teamName}:** Auto-selected bowler: ${bowler}`,
+      content: `⏰ Timeout! **${bowlingTeam.teamName}:** Auto-selected bowler: ${randomEmoji} ${randomBowler}`,
       components: []
     });
-    return bowler;
+    return randomBowler;
   }
 }
 
@@ -222,5 +305,7 @@ module.exports = {
   selectNextBatsman,
   selectBowlerForOver,
   getAvailableBowlers,
-  SELECTION_TIMEOUT
+  SELECTION_TIMEOUT,
+  getBowlerEmoji,  // Export for use in other files
+  formatBowlerName  // Export for use in other files
 };
