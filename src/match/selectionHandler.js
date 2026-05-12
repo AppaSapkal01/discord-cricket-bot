@@ -1,58 +1,40 @@
-// match/selectionHandler.js
 const { ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require("discord.js");
 const matchManager = require("../managers/matchManager");
 
-const SELECTION_TIMEOUT = 15000; // 15 seconds
+const SELECTION_TIMEOUT = 15000;
 
-// Helper function to get bowler type emoji
 function getBowlerEmoji(player, playersMap) {
   if (!player || !playersMap) return "🎯";
-
   const playerData = playersMap.get(player.toLowerCase().trim());
   if (!playerData) return "🎯";
-
   const role = (playerData.role || "").toLowerCase();
-
-  if (role.includes("fast") || role === "fast bowler") {
-    return "⚡"; // Fast bowler
-  } else if (role.includes("spin") || role === "spin bowler") {
-    return "🌀"; // Spin bowler
-  } else if (role.includes("allrounder")) {
-    // Check allrounder sub-type
-    if (role.includes("fast") || role.includes("pace")) {
-      return "⚡🌀"; // Fast bowling allrounder
-    } else if (role.includes("spin")) {
-      return "🌀⚡"; // Spin bowling allrounder
-    }
-    return "🌀"; // Generic allrounder
+  if (role.includes("fast") || role === "fast bowler") return "⚡";
+  if (role.includes("spin") || role === "spin bowler") return "🌀";
+  if (role.includes("allrounder")) {
+    if (role.includes("fast") || role.includes("pace")) return "⚡🌀";
+    if (role.includes("spin")) return "🌀⚡";
+    return "🌀";
   }
-
-  return "🎯"; // Default for unknown types
+  return "🎯";
 }
 
-// Helper function to format bowler display with emoji
 function formatBowlerName(name, playersMap, matchState = null) {
   const emoji = getBowlerEmoji(name, playersMap);
   let display = `${emoji} ${name}`;
-
-  // Add overs bowled info if matchState provided
   if (matchState && matchState.bowlerOvers) {
     const oversBowled = matchState.bowlerOvers.get(name) || 0;
     display += ` (${oversBowled}/4)`;
   }
-
   return display;
 }
 
 async function selectOpeners(interaction, team, inningNumber = 1) {
   const channelId = interaction.channelId;
   const availablePlayers = [...team.players];
-
   const currentMatch = matchManager.getMatch(channelId);
   if (!currentMatch || !currentMatch.isActive || currentMatch.stopped) {
-    throw new Error("Match has been stopped");
+    return null;  // ← not throw
   }
-
   const selectMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`openers_${inningNumber}_${Date.now()}`)
@@ -67,73 +49,62 @@ async function selectOpeners(interaction, team, inningNumber = 1) {
     components: [selectMenu]
   });
 
-  try {
-    const choice = await interaction.channel.awaitMessageComponent({
-      filter: i => i.customId.startsWith(`openers_${inningNumber}_`),
-      time: SELECTION_TIMEOUT,
-      componentType: ComponentType.StringSelect
+  return new Promise(resolve => {
+    const collector = promptMessage.createMessageComponentCollector({
+      componentType: ComponentType.StringSelect,
+      time: SELECTION_TIMEOUT
     });
 
-    const matchAfterSelection = matchManager.getMatch(channelId);
-    if (!matchAfterSelection || !matchAfterSelection.isActive || matchAfterSelection.stopped) {
-      await promptMessage.delete().catch(() => { });
-      throw new Error("Match stopped");
-    }
+    let resolved = false;
 
-    const openers = choice.values;
-    const selectedBy = choice.user.username;
-    await promptMessage.edit({
-      content: `✅ **${team.teamName}:** ${openers[0]} and ${openers[1]} are opening the innings (selected by ${selectedBy})`,
-      components: []
-    });
-    return openers;
-  } catch (e) {
-    const matchAfterTimeout = matchManager.getMatch(channelId);
-    if (!matchAfterTimeout || !matchAfterTimeout.isActive || matchAfterTimeout.stopped) {
-      return null;
-    }
+    collector.on("collect", async i => {
+      await i.deferUpdate().catch(() => { });
 
-    const openers = availablePlayers.slice(0, 2);
-    await promptMessage.edit({
-      content: `⏰ Timeout! **${team.teamName}:** Auto-selected openers: ${openers[0]} and ${openers[1]}`,
-      components: []
+      const matchAfter = matchManager.getMatch(channelId);
+      if (!matchAfter || !matchAfter.isActive || matchAfter.stopped) {
+        if (!resolved) { resolved = true; collector.stop("match_stopped"); resolve(null); }
+        return;
+      }
+
+      const openers = i.values;
+      await promptMessage.edit({
+        content: `✅ **${team.teamName}:** ${openers[0]} and ${openers[1]} are opening the innings (selected by ${i.user.username})`,
+        components: []
+      }).catch(() => { });
+
+      if (!resolved) { resolved = true; collector.stop("selected"); resolve(openers); }
     });
-    return openers;
-  }
+
+    collector.on("end", async (collected, reason) => {
+      if (resolved) return;
+      resolved = true;
+      if (reason === "match_stopped") return;
+
+      const matchAfter = matchManager.getMatch(channelId);
+      if (!matchAfter || !matchAfter.isActive || matchAfter.stopped) { resolve(null); return; }
+
+      const openers = availablePlayers.slice(0, 2);
+      await promptMessage.edit({
+        content: `⏰ Timeout! **${team.teamName}:** Auto-selected openers: ${openers[0]} and ${openers[1]}`,
+        components: []
+      }).catch(() => { });
+      resolve(openers);
+    });
+  });
 }
 
-async function selectNextBatsman(interaction, remainingBatsmen, overNumber, inningNumber, matchState) {
+// selectNextBatsman: uses hasBatted (single source of truth)
+async function selectNextBatsman(interaction, overNumber, inningNumber, matchState) {
   const channelId = interaction.channelId;
   const battingTeam = matchState.battingTeam;
+  const battingOrder = matchState.battingOrder;
+  const hasBatted = matchState.hasBatted;
 
-  // console.log(`[SELECT NEXT] Called with remainingBatsmen: ${remainingBatsmen.join(', ')}`);
-  // console.log(`[SELECT NEXT] Current striker: ${matchState.battingOrder[matchState.strikerIdx]}`);
-  // console.log(`[SELECT NEXT] Current nonStriker: ${matchState.battingOrder[matchState.nonStrikerIdx]}`);
-  // console.log(`[SELECT NEXT] nextBatsmanIdx: ${matchState.nextBatsmanIdx}`);
-  // console.log(`[SELECT NEXT] Full battingOrder: ${matchState.battingOrder.join(', ')}`);
-  // console.log(`[SELECT NEXT] dismissedBatsmen: ${Array.from(matchState.dismissedBatsmen).join(', ')}`);
-
-  const currentMatch = matchManager.getMatch(channelId);
-  if (!currentMatch || !currentMatch.isActive || currentMatch.stopped) {
-    return null;
-  }
-
-  // Filter out batsmen who are currently batting or dismissed
-  const availableBatsmen = remainingBatsmen.filter(name => {
-    const trimmedName = name.trim();
-    // Don't show batsmen who are currently batting
-    const isCurrentlyBatting = trimmedName === matchState.battingOrder[matchState.strikerIdx] ||
-      trimmedName === matchState.battingOrder[matchState.nonStrikerIdx];
-
-    // Don't show dismissed batsmen
-    const isDismissed = matchState.dismissedBatsmen.has(trimmedName);
-
-    // console.log(`[FILTER] ${trimmedName}: currentlyBatting=${isCurrentlyBatting}, dismissed=${isDismissed}`);
-
-    return !isCurrentlyBatting && !isDismissed;
+  // Available = anyone who hasn't batted yet (striker & nonStriker are already in hasBatted)
+  const availableBatsmen = battingOrder.filter(name => {
+    const trimmed = name.trim();
+    return !hasBatted.has(trimmed);
   });
-  // console.log(`[FILTER] Available batsmen after filter: ${availableBatsmen.join(', ')}`);
-
 
   if (availableBatsmen.length === 0) return null;
 
@@ -149,41 +120,51 @@ async function selectNextBatsman(interaction, remainingBatsmen, overNumber, inni
     components: [selectMenu]
   });
 
-  try {
-    const choice = await interaction.channel.awaitMessageComponent({
-      filter: i => i.customId.startsWith(`batsman_${inningNumber}_${overNumber}_`),
-      time: 30000,
-      componentType: ComponentType.StringSelect
+  return new Promise(resolve => {
+    const collector = promptMessage.createMessageComponentCollector({
+      componentType: ComponentType.StringSelect,
+      time: 30000
     });
 
-    const matchAfterSelection = matchManager.getMatch(channelId);
-    if (!matchAfterSelection || !matchAfterSelection.isActive || matchAfterSelection.stopped) {
-      await promptMessage.delete().catch(() => { });
-      return null;
-    }
+    let resolved = false;
 
-    const batsman = choice.values[0];
-    const selectedBy = choice.user.username;
-    await promptMessage.edit({
-      content: `✅ **${battingTeam.teamName}:** ${batsman} is coming to the crease (selected by ${selectedBy})`,
-      components: []
-    });
-    return batsman;
-  } catch (e) {
-    const matchAfterTimeout = matchManager.getMatch(channelId);
-    if (!matchAfterTimeout || !matchAfterTimeout.isActive || matchAfterTimeout.stopped) {
-      return null;
-    }
+    collector.on("collect", async i => {
+      await i.deferUpdate().catch(() => { });
 
-    // CRITICAL FIX: Don't auto-select during wicket! This was causing the same batsman issue
-    // Instead, wait for user input - but since timeout happened, use first available
-    const batsman = availableBatsmen[0];
-    await promptMessage.edit({
-      content: `⚠️ **${battingTeam.teamName}:** No selection made. Defaulting to ${batsman} (Auto-selected)`,
-      components: []
+      const matchAfter = matchManager.getMatch(channelId);
+      if (!matchAfter?.isActive || matchAfter.stopped) {
+        if (!resolved) { resolved = true; collector.stop("match_stopped"); resolve(null); }
+        return;
+      }
+
+      const selectedBatsman = i.values[0];
+      matchState.hasBatted.add(selectedBatsman.trim());
+
+      await promptMessage.edit({
+        content: `✅ **${battingTeam.teamName}:** ${selectedBatsman} is coming to the crease (selected by ${i.user.username})`,
+        components: []
+      }).catch(() => { });
+
+      if (!resolved) { resolved = true; collector.stop("selected"); resolve(selectedBatsman); }
     });
-    return batsman;
-  }
+
+    collector.on("end", async (collected, reason) => {
+      if (resolved) return;
+      resolved = true;
+      if (reason === "match_stopped") return;
+
+      const matchAfter = matchManager.getMatch(channelId);
+      if (!matchAfter?.isActive || matchAfter.stopped) { resolve(null); return; }
+
+      const autoBatsman = availableBatsmen[0];
+      matchState.hasBatted.add(autoBatsman.trim());
+      await promptMessage.edit({
+        content: `⚠️ **${battingTeam.teamName}:** No selection made. Defaulting to ${autoBatsman} (Auto-selected)`,
+        components: []
+      }).catch(() => { });
+      resolve(autoBatsman);
+    });
+  });
 }
 
 function getAvailableBowlers(team, playersMap) {
@@ -197,34 +178,21 @@ function getAvailableBowlers(team, playersMap) {
 async function selectBowlerForOver(interaction, availableBowlers, overNumber, inningNumber, matchState, playersMap) {
   const bowlingTeam = matchState.bowlingTeam;
   const channelId = interaction.channelId;
-
   const currentMatch = matchManager.getMatch(channelId);
-  if (!currentMatch || !currentMatch.isActive || currentMatch.stopped) {
-    return null;
-  }
+  if (!currentMatch || !currentMatch.isActive || currentMatch.stopped) return null;
 
-  // Create options with emojis for bowler types
   const bowlerOptions = availableBowlers.map(name => {
     const oversBowled = matchState.bowlerOvers?.get(name) || 0;
     const remaining = 4 - oversBowled;
     const bowlerStats = matchState.bowlerStats?.get(name);
-
-    // Get emoji for bowler type
     const emoji = getBowlerEmoji(name, playersMap);
-
-    // Build description with stats
     let description = `${oversBowled}/4 overs left: ${remaining}`;
-    if (bowlerStats && bowlerStats.runs > 0) {
-      description += ` | ${bowlerStats.runs}/${bowlerStats.wickets}`;
-    }
-
+    if (bowlerStats && bowlerStats.runs > 0) description += ` | ${bowlerStats.runs}/${bowlerStats.wickets}`;
     return {
       label: name,
       value: name,
-      description: description,
-      emoji: {
-        name: emoji === "⚡" ? "⚡" : emoji === "🌀" ? "🌀" : "🎯"
-      }
+      description,
+      emoji: { name: emoji === "⚡" ? "⚡" : emoji === "🌀" ? "🌀" : "🎯" }
     };
   });
 
@@ -235,69 +203,77 @@ async function selectBowlerForOver(interaction, availableBowlers, overNumber, in
       .addOptions(bowlerOptions.slice(0, 25))
   );
 
-  // Create info message showing available bowler types
-  const fastBowlers = availableBowlers.filter(name => {
-    const emoji = getBowlerEmoji(name, playersMap);
-    return emoji === "⚡";
-  });
-
-  const spinBowlers = availableBowlers.filter(name => {
-    const emoji = getBowlerEmoji(name, playersMap);
-    return emoji === "🌀";
-  });
-
+  const fastBowlers = availableBowlers.filter(name => getBowlerEmoji(name, playersMap) === "⚡");
+  const spinBowlers = availableBowlers.filter(name => getBowlerEmoji(name, playersMap) === "🌀");
   let typeInfo = "";
-  if (fastBowlers.length > 0) {
-    typeInfo += `⚡ Fast Bowlers: ${fastBowlers.join(", ")}\n`;
-  }
-  if (spinBowlers.length > 0) {
-    typeInfo += `🌀 Spin Bowlers: ${spinBowlers.join(", ")}`;
-  }
+  if (fastBowlers.length > 0) typeInfo += `⚡ Fast Bowlers: ${fastBowlers.join(", ")}\n`;
+  if (spinBowlers.length > 0) typeInfo += `🌀 Spin Bowlers: ${spinBowlers.join(", ")}`;
 
   const promptMessage = await interaction.channel.send({
     content: `**${bowlingTeam.teamName}:** Select your bowler for over ${overNumber} (15s to respond)\n${typeInfo ? `\n${typeInfo}` : ""}`,
     components: [selectMenu]
   });
 
-  try {
-    const choice = await interaction.channel.awaitMessageComponent({
-      filter: i => i.customId.startsWith(`bowler_${inningNumber}_${overNumber}_`),
-      time: SELECTION_TIMEOUT,
-      componentType: ComponentType.StringSelect
+  return new Promise(resolve => {
+    const collector = promptMessage.createMessageComponentCollector({
+      componentType: ComponentType.StringSelect,
+      time: SELECTION_TIMEOUT
     });
 
-    const matchAfterSelection = matchManager.getMatch(channelId);
-    if (!matchAfterSelection || !matchAfterSelection.isActive || matchAfterSelection.stopped) {
-      await promptMessage.delete().catch(() => { });
-      return null;
-    }
+    let resolved = false;
 
-    const bowler = choice.values[0];
-    const selectedBy = choice.user.username;
-    const oversBowled = (matchState.bowlerOvers?.get(bowler) || 0) + 1;
-    const bowlerEmoji = getBowlerEmoji(bowler, playersMap);
+    collector.on("collect", async i => {
+      // Acknowledge EVERY interaction immediately — prevents "Unknown interaction"
+      await i.deferUpdate().catch(() => { });
 
-    await promptMessage.edit({
-      content: `✅ **${bowlingTeam.teamName}:** ${bowlerEmoji} ${bowler} is the new bowler (selected by ${selectedBy}) | Overs: ${oversBowled}/4`,
-      components: []
+      const matchAfter = matchManager.getMatch(channelId);
+      if (!matchAfter || !matchAfter.isActive || matchAfter.stopped) {
+        if (!resolved) {
+          resolved = true;
+          collector.stop("match_stopped");
+          resolve(null);
+        }
+        return;
+      }
+
+      const bowler = i.values[0];
+      const oversBowled = (matchState.bowlerOvers?.get(bowler) || 0) + 1;
+      const bowlerEmoji = getBowlerEmoji(bowler, playersMap);
+
+      await promptMessage.edit({
+        content: `✅ **${bowlingTeam.teamName}:** ${bowlerEmoji} ${bowler} is the new bowler (selected by ${i.user.username}) | Overs: ${oversBowled}/4`,
+        components: []
+      }).catch(() => { });
+
+      if (!resolved) {
+        resolved = true;
+        collector.stop("selected");
+        resolve(bowler);
+      }
     });
 
-    return bowler;
-  } catch (e) {
-    const matchAfterTimeout = matchManager.getMatch(channelId);
-    if (!matchAfterTimeout || !matchAfterTimeout.isActive || matchAfterTimeout.stopped) {
-      return null;
-    }
+    collector.on("end", async (collected, reason) => {
+      if (resolved) return;
+      resolved = true;
 
-    const randomBowler = availableBowlers[Math.floor(Math.random() * availableBowlers.length)];
-    const randomEmoji = getBowlerEmoji(randomBowler, playersMap);
+      if (reason === "match_stopped") return; // already resolved null above
 
-    await promptMessage.edit({
-      content: `⏰ Timeout! **${bowlingTeam.teamName}:** Auto-selected bowler: ${randomEmoji} ${randomBowler}`,
-      components: []
+      const matchAfter = matchManager.getMatch(channelId);
+      if (!matchAfter || !matchAfter.isActive || matchAfter.stopped) {
+        resolve(null);
+        return;
+      }
+
+      // Timeout — auto-select
+      const randomBowler = availableBowlers[Math.floor(Math.random() * availableBowlers.length)];
+      const randomEmoji = getBowlerEmoji(randomBowler, playersMap);
+      await promptMessage.edit({
+        content: `⏰ Timeout! **${bowlingTeam.teamName}:** Auto-selected bowler: ${randomEmoji} ${randomBowler}`,
+        components: []
+      }).catch(() => { });
+      resolve(randomBowler);
     });
-    return randomBowler;
-  }
+  });
 }
 
 module.exports = {
@@ -306,6 +282,6 @@ module.exports = {
   selectBowlerForOver,
   getAvailableBowlers,
   SELECTION_TIMEOUT,
-  getBowlerEmoji,  // Export for use in other files
-  formatBowlerName  // Export for use in other files
+  getBowlerEmoji,
+  formatBowlerName
 };

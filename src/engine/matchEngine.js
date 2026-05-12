@@ -1,5 +1,3 @@
-// engine/matchEngine.js (REALISTIC ENGINE FIXED)
-
 const random = (min, max) => Math.random() * (max - min) + min;
 
 function normalRandom(mean = 0, std = 1) {
@@ -10,7 +8,10 @@ function normalRandom(mean = 0, std = 1) {
 }
 
 // -------------------- INTENT --------------------
-function decideIntent(batsman, context) {
+function decideIntent(batsman, context, isFreeHit = false) {
+  // Free hit → always attack
+  if (isFreeHit) return "attack";
+
   let aggression = batsman.aggression || 50;
 
   if (context.requiredRate > 9) aggression += 20;
@@ -39,9 +40,7 @@ function getBattingSkill(batsman, isPacer, stadium) {
   }
 
   skill *= 1 + ((stadium.batting || 5) - 5) * 0.05;
-
   skill *= (batsman.battingForm || 50) / 55;
-
   return skill;
 }
 
@@ -65,83 +64,60 @@ function getBallQuality(bowler, stadium, isPacer, context) {
   //   quality *= (bowler.deathBowling || 50) / 50;
   // }
 
-  if (context.dew) {
-    quality *= 0.92;
-  }
-
+  if (context.dew) quality *= 0.92;
   quality *= (bowler.bowlingForm || 50) / 50;
 
   return quality * 0.9 + normalRandom(0, 3);
 }
 
-// -------------------- EXTRAS --------------------
-function getExtra(bowler) {
-  const control = (bowler.control || 50) / 100;
-  const chance = 5 - control * 4;
+// -------------------- EXTRAS (with momentum) --------------------
+function getExtra(bowler, bowlerMomentum = 0) {
+  const controlRating = (bowler.control || 50) / 100;
+  const momentumEffect = bowlerMomentum < 0 ? Math.abs(bowlerMomentum) / 10 : 0;
+  const extraChance = Math.max(1.5, Math.min(8, 6 - (controlRating * 5) + momentumEffect));
 
-  if (Math.random() * 100 < chance) {
-    return Math.random() < 0.5
-      ? { type: "wide", runs: 1 }
-      : { type: "noball", runs: 1 };
+  if (Math.random() * 100 < extraChance) {
+    // wide or no‑ball (no‑ball slightly more common in T20)
+    return Math.random() < 0.55 ? { type: "noball", runs: 1 } : { type: "wide", runs: 1 };
   }
-
   return null;
 }
 
 // -------------------- SHOT RESOLUTION --------------------
 function resolveShot(intent, battingSkill, ballQuality) {
   const diff = battingSkill - ballQuality;
-
-  // normalize into -20 to +20 range
   const normalized = Math.max(-20, Math.min(20, diff));
-
   let score = normalized + normalRandom(0, 5);
-
   if (intent === "attack") score -= 5;
   if (intent === "defensive") score += 4;
-
   return score;
 }
 
-// -------------------- WICKET --------------------
-function getWicketChance(intent, success) {
-  let chance = 1.5; // base lowered
-
+// -------------------- WICKET (ignored on free‑hit or no‑ball) --------------------
+function getWicketChance(intent, success, isSafe = false) {
+  if (isSafe) return 0; // no‑ball or free‑hit → no wicket (run‑out not implemented)
+  let chance = 1.5;
   if (intent === "attack") chance += 4.5;
   if (intent === "balanced") chance += 2;
-
-  // only harsh failure matters
   if (success < -10) chance += 5;
   if (success < -18) chance += 6;
-
-  // cap realism
   return Math.min(18, chance);
 }
 
-// -------------------- RUNS (FIXED CORE) --------------------
+// -------------------- RUNS (same logic, but we'll add extra runs later) --------------------
 function getRuns(success, batsman, stadium, bowler) {
   const power = (batsman.power || 50) / 100;
   const boundarySize = stadium.boundarySize || 5;
-
   const boundaryChance = power * (4.5 / boundarySize);
 
-  // DOT BALLS
   if (success < -12) return 0;
-
-  // SAFE DEFENSE ZONE
-  if (success < -2) {
-    return Math.random() < 0.75 ? 0 : 1;
-  }
-
-  // NORMAL CRICKET ZONE
+  if (success < -2) return Math.random() < 0.75 ? 0 : 1;
   if (success < 10) {
     const r = Math.random();
     if (r < 0.55) return 1;
     if (r < 0.75) return 2;
     return 0;
   }
-
-  // GOOD SHOTS
   if (success < 25) {
     const r = Math.random();
     if (r < 0.5) return 1;
@@ -149,13 +125,8 @@ function getRuns(success, batsman, stadium, bowler) {
     if (r < 0.9) return 3;
     return Math.random() < boundaryChance ? 4 : 0;
   }
-
-  // BIG HITS
   const r = Math.random();
-  if (r < boundaryChance) {
-    return Math.random() < 0.4 ? 6 : 4;
-  }
-
+  if (r < boundaryChance) return Math.random() < 0.4 ? 6 : 4;
   return Math.random() < 0.6 ? 2 : 1;
 }
 
@@ -165,33 +136,36 @@ function simulateBall(
   bowler,
   stadium,
   context,
-  isFreeHit = false
+  isFreeHit = false,
+  bowlerMomentum = 0
 ) {
-  const isPacer =
-    (bowler.role || "").toLowerCase().includes("fast") ||
-    (bowler.role || "").toLowerCase().includes("pace");
-
-  // Extras
-  const extra = getExtra(bowler);
-  if (extra) {
+  // 1. Extras (only wide is an immediate dead ball; no‑ball will be simulated)
+  const extra = getExtra(bowler, bowlerMomentum);
+  if (extra && extra.type === "wide") {
     return {
-      type: extra.type,
-      runs: extra.runs,
+      type: "wide",
+      runs: extra.runs,        // 1 run
       isExtra: true,
-      freeHit: extra.type === "noball"
+      freeHit: false
     };
   }
 
-  const intent = decideIntent(batsman, context);
+  const isNoBall = extra && extra.type === "noball";
+  const isPacer = (bowler.role || "").toLowerCase().includes("fast") ||
+                  (bowler.role || "").toLowerCase().includes("pace");
+
+  // Free hit forces attack intent; no‑ball does not (the shot is still played)
+  const intent = decideIntent(batsman, context, isFreeHit);
 
   const battingSkill = getBattingSkill(batsman, isPacer, stadium);
   const ballQuality = getBallQuality(bowler, stadium, isPacer, context);
-
   const success = resolveShot(intent, battingSkill, ballQuality);
 
-  const wicketChance = getWicketChance(intent, success);
+  // No wicket on free‑hit or no‑ball
+  const wicketSafe = isFreeHit || isNoBall;
+  const wicketChance = getWicketChance(intent, success, wicketSafe);
 
-  if (!isFreeHit && Math.random() * 100 < wicketChance) {
+  if (!wicketSafe && Math.random() * 100 < wicketChance) {
     return {
       type: "wicket",
       runs: 0,
@@ -199,16 +173,31 @@ function simulateBall(
     };
   }
 
-  const runs = getRuns(success, batsman, stadium, bowler);
+  // Normal runs from the ball
+  let runs = getRuns(success, batsman, stadium, bowler);
+  let isBoundary = (runs === 4 || runs === 6);
+  let totalRuns = runs;
 
-  const speed = isPacer
-    ? random(125, 150).toFixed(1)
-    : random(75, 105).toFixed(1);
+  // If it's a no‑ball, add the extra run and mark the delivery
+  if (isNoBall) {
+    totalRuns = runs + 1;
+    return {
+      type: "noball",
+      runs: totalRuns,            // bat runs + 1
+      runsFromBall: runs,         // only for info (optional)
+      isBoundary: isBoundary,     // boundary based on bat runs, not the extra
+      freeHit: true,              // next ball is free hit
+      intent,
+      success: success.toFixed(2)
+    };
+  }
 
+  // Normal delivery (including free‑hit without no‑ball)
+  const speed = isPacer ? random(125, 150).toFixed(1) : random(75, 105).toFixed(1);
   return {
     type: "run",
-    runs,
-    isBoundary: runs === 4 || runs === 6,
+    runs: totalRuns,
+    isBoundary,
     intent,
     success: success.toFixed(2),
     speed
