@@ -18,20 +18,20 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
     inningsMessage += `🎯 Target: Set a score\n`;
   }
   inningsMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  
+
   await interaction.channel.send(inningsMessage);
   await sleep(2000);
 
   let overCompleted = 0;
-  
+
   for (let overNumber = 0; overNumber < maxOvers; overNumber++) {
     let currentMatch = matchManager.getMatch(channelId);
     if (!currentMatch || !currentMatch.isActive || currentMatch.stopped) {
       const displayOversCompleted = overCompleted + 1;
 
-      return { 
-        runs: matchState.runs, 
-        wickets: matchState.wickets, 
+      return {
+        runs: matchState.runs,
+        wickets: matchState.wickets,
         overs: displayOversCompleted,
         batsmanStats: matchState.batsmanStats,
         bowlerStats: matchState.bowlerStats
@@ -43,27 +43,27 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
     matchState.currentOver = overNumber;
 
     const result = await playOver(
-      interaction, matchState, playersMap, stadium, 
+      interaction, matchState, playersMap, stadium,
       overNumber, inningNumber, target, channelId
     );
-    
+
     overCompleted = overNumber;
-    
+
     if (result?.endReason === "match_stopped") {
       const displayOversCompleted = overCompleted + 1;
-      return { 
-        runs: matchState.runs, 
-        wickets: matchState.wickets, 
+      return {
+        runs: matchState.runs,
+        wickets: matchState.wickets,
         overs: displayOversCompleted,
         batsmanStats: matchState.batsmanStats,
         bowlerStats: matchState.bowlerStats
       };
     }
-    
+
     if (matchState.wickets >= 10 || (target && matchState.runs >= target)) {
       break;
     }
-    
+
     await sleep(2000);
   }
 
@@ -77,30 +77,32 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
     endMessage += `📈 Run Rate: ${(matchState.runs / displayOversCompleted).toFixed(2)}\n`;
   }
   endMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  
+
   await interaction.channel.send(endMessage);
   await sleep(2000);
 
   // Show FULL SCORECARD only after innings is complete
   const finalScorecardEmbed = createInningsScorecardEmbed(
-    inningNumber, 
-    matchState.battingTeam.teamName, 
-    matchState.runs, 
-    matchState.wickets, 
+    inningNumber,
+    matchState.battingTeam.teamName,
+    matchState.runs,
+    matchState.wickets,
     displayOversCompleted,
-    matchState.batsmanStats, 
-    matchState.bowlerStats, 
-    target
+    matchState.batsmanStats,
+    matchState.bowlerStats,
+    target,
+    matchState.battingOrder
   );
   await interaction.channel.send({ embeds: [finalScorecardEmbed] });
   await sleep(2000);
 
-  return { 
-    runs: matchState.runs, 
-    wickets: matchState.wickets, 
+  return {
+    runs: matchState.runs,
+    wickets: matchState.wickets,
     overs: displayOversCompleted,
     batsmanStats: matchState.batsmanStats,
-    bowlerStats: matchState.bowlerStats
+    bowlerStats: matchState.bowlerStats,
+    battingOrder: [...matchState.battingOrder]
   };
 }
 

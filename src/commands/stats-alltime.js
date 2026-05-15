@@ -58,7 +58,7 @@ module.exports = {
                 // Your exact format without Balls for alltime
                 reply += `--- ${player} ---\n\n`;
                 reply += `🏏 T20 Stats:\n`;
-                reply += `• Batting: Matches: ${stats.batting.matches}, Runs: ${stats.batting.runs}, SR: ${stats.batting.strikeRate}, Avg: ${stats.batting.average}\n`;
+                reply += `• Batting: Matches: ${stats.batting.matches}, Runs: ${stats.batting.runs}, Balls: ${stats.batting.balls} SR: ${stats.batting.strikeRate}, Avg: ${stats.batting.average}\n`;
                 reply += `• Bowling: Matches: ${stats.bowling.matches}, Wickets: ${stats.bowling.wickets}, Overs: ${stats.bowling.overs}, Econ: ${stats.bowling.economy}, Avg: ${stats.bowling.average}\n\n`;
                 reply += `─────────────────────────────────\n`;
             }

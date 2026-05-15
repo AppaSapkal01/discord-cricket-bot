@@ -26,7 +26,8 @@ function createInningsScorecardEmbed(
   overs,
   batsmanStats,
   bowlerStats,
-  target = null
+  target = null,
+  battingOrder = null   // new parameter
 ) {
   const embed = new EmbedBuilder()
     .setTitle(`🏏 ${inningNumber === 1 ? "FIRST" : "SECOND"} INNINGS - ${teamName}`)
@@ -45,61 +46,96 @@ function createInningsScorecardEmbed(
   }
   embed.setDescription(scoreText);
 
-  // -------------------- BATTING --------------------
-  let battingText = "";
-  battingText += "┌────────────────────────────────────────────────────────────┐\n";
-  battingText += "│ Batsman                      │ Runs│ Bls│ 4s│ 6s│ SR      │\n";
-  battingText += "├────────────────────────────────────────────────────────────┤\n";
+  // -------------------- BATTING TABLE --------------------
+  const nameWidth = 24;
+  const runsWidth = 3;
+  const ballsWidth = 2;
+  const srWidth = 7;
+  const foursWidth = 2;
+  const sixesWidth = 2;
 
-  const battedPlayers = Object.values(batsmanStats)
-    .filter((b) => b.balls > 0 || b.runs > 0)
-    .sort((a, b) => b.runs - a.runs);
+  // Correct total width
+  const totalWidth =
+    nameWidth +
+    runsWidth +
+    ballsWidth +
+    srWidth +
+    foursWidth +
+    sixesWidth +
+    22;
 
-  for (const batsman of battedPlayers) {
-    const sr =
-      batsman.balls > 0
-        ? ((batsman.runs / batsman.balls) * 100).toFixed(1)
-        : "0.0";
+  let battingText = "┌" + "─".repeat(totalWidth - 2) + "┐\n";
 
-    const name =
-      batsman.name.length > 25
-        ? batsman.name.substring(0, 22) + "..."
-        : batsman.name;
+  battingText +=
+    `│ ${"Batter".padEnd(nameWidth - 1)}` +
+    `│ ${"R".padStart(runsWidth)} ` +
+    `│ ${"B".padStart(ballsWidth)} ` +
+    `│ ${"SR".padStart(srWidth)} ` +
+    `│ ${"4s".padStart(foursWidth)} ` +
+    `│ ${"6s".padStart(sixesWidth)} │\n`;
 
-    const dismissal = batsman.dismissed ? "†" : "*";
+  battingText += "├" + "─".repeat(totalWidth - 2) + "┤\n";
 
-    battingText += `│ ${(name + dismissal).padEnd(25)} │ ${batsman.runs
-      .toString()
-      .padStart(3)} │ ${batsman.balls
-      .toString()
-      .padStart(3)} │ ${batsman.fours
-      .toString()
-      .padStart(2)} │ ${batsman.sixes
-      .toString()
-      .padStart(2)} │ ${sr.padStart(6)} │\n`;
+  // Determine batting order
+  let order = battingOrder;
+  if (!order || order.length === 0) {
+    order = Object.values(batsmanStats)
+      .sort((a, b) => b.runs - a.runs)
+      .map(s => s.name);
   }
 
-  const didNotBat = Object.values(batsmanStats)
-    .filter((b) => b.balls === 0 && b.runs === 0)
-    .map((b) => b.name);
+  const orderedBatsmen = [];
 
-  if (didNotBat.length > 0 && battedPlayers.length < 11) {
-    battingText += "├────────────────────────────────────────────────────────────┤\n";
-    battingText += "│ 📋 DID NOT BAT                                              │\n";
-
-    const dnbs = didNotBat.join(", ");
-    const chunks = dnbs.match(/.{1,46}/g) || [];
-
-    for (const chunk of chunks) {
-      battingText += `│ ${chunk.padEnd(46)} │\n`;
+  for (const name of order) {
+    const key = name.toLowerCase().trim();
+    if (batsmanStats[key]) {
+      orderedBatsmen.push(batsmanStats[key]);
     }
   }
 
-  battingText += "└────────────────────────────────────────────────────────────┘";
+  for (const [key, stats] of Object.entries(batsmanStats)) {
+    if (!orderedBatsmen.includes(stats)) {
+      orderedBatsmen.push(stats);
+    }
+  }
 
-  // 🔥 SPLIT + ADD
+  for (const batsman of orderedBatsmen) {
+    let name = batsman.name;
+
+    if (name.length > nameWidth - 3) {
+      name = name.substring(0, nameWidth - 4) + "...";
+    }
+
+    const notOutMark =
+      batsman.out === false && batsman.balls > 0 ? "*" : "";
+
+    if (batsman.balls === 0 && batsman.runs === 0) {
+      battingText +=
+        `│ ${(name).padEnd(nameWidth - 1)}` +
+        `│ ${"DNB".padStart(runsWidth)} ` +
+        `│ ${"-".padStart(ballsWidth)} ` +
+        `│ ${"-".padStart(srWidth)} ` +
+        `│ ${"-".padStart(foursWidth)} ` +
+        `│ ${"-".padStart(sixesWidth)} │\n`;
+    } else {
+      const sr =
+        batsman.balls > 0
+          ? ((batsman.runs / batsman.balls) * 100).toFixed(2)
+          : "0.00";
+
+      battingText +=
+        `│ ${(name + notOutMark).padEnd(nameWidth - 1)}` +
+        `│ ${batsman.runs.toString().padStart(runsWidth)} ` +
+        `│ ${batsman.balls.toString().padStart(ballsWidth)} ` +
+        `│ ${sr.padStart(srWidth)} ` +
+        `│ ${batsman.fours.toString().padStart(foursWidth)} ` +
+        `│ ${batsman.sixes.toString().padStart(sixesWidth)} │\n`;
+    }
+  }
+
+  battingText += "└" + "─".repeat(totalWidth - 2) + "┘";
+
   const battingChunks = splitText(battingText);
-
   battingChunks.forEach((chunk, index) => {
     embed.addFields({
       name: index === 0 ? "📊 BATTING" : "📊 BATTING (cont.)",
@@ -108,57 +144,62 @@ function createInningsScorecardEmbed(
     });
   });
 
-  // -------------------- BOWLING --------------------
-  let bowlingText = "";
-  bowlingText += "┌────────────────────────────────────────────────────────────┐\n";
-  bowlingText += "│ Bowler                       │ Overs│ Runs│ Wkts│ Econ    │\n";
-  bowlingText += "├────────────────────────────────────────────────────────────┤\n";
+  // -------------------- BOWLING TABLE --------------------
+  const bowlerNameWidth = 24;
+  const oversWidth = 2;
+  const runsWidthBowl = 2;
+  const wicketsWidth = 2;
+  const econWidth = 5;
+
+  const totalWidthBowl =
+    bowlerNameWidth +
+    oversWidth +
+    runsWidthBowl +
+    wicketsWidth +
+    econWidth +
+    18;
+
+  let bowlingText =
+    "┌" + "─".repeat(totalWidthBowl - 2) + "┐\n";
+
+  bowlingText +=
+    `│ ${"Bowler".padEnd(bowlerNameWidth - 1)}` +
+    `│ ${"O".padStart(oversWidth)} ` +
+    `│ ${"R".padStart(runsWidthBowl)} ` +
+    `│ ${"W".padStart(wicketsWidth)} ` +
+    `│ ${"Econ".padStart(econWidth)} │\n`;
+
+  bowlingText +=
+    "├" + "─".repeat(totalWidthBowl - 2) + "┤\n";
 
   const bowlersWhoBowled = Array.from(bowlerStats.values())
     .filter((b) => b.overs > 0)
     .sort((a, b) => b.wickets - a.wickets);
 
   for (const bowler of bowlersWhoBowled) {
+    let name = bowler.name;
+
+    if (name.length > bowlerNameWidth - 3) {
+      name = name.substring(0, bowlerNameWidth - 4) + "...";
+    }
+
     const econ =
       bowler.overs > 0
         ? (bowler.runs / bowler.overs).toFixed(2)
         : "0.00";
 
-    const name =
-      bowler.name.length > 25
-        ? bowler.name.substring(0, 22) + "..."
-        : bowler.name;
-
-    bowlingText += `│ ${name.padEnd(25)} │ ${bowler.overs
-      .toString()
-      .padStart(4)} │ ${bowler.runs
-      .toString()
-      .padStart(4)} │ ${bowler.wickets
-      .toString()
-      .padStart(4)} │ ${econ.padStart(7)} │\n`;
+    bowlingText +=
+      `│ ${name.padEnd(bowlerNameWidth - 1)}` +
+      `│ ${bowler.overs.toString().padStart(oversWidth)} ` +
+      `│ ${bowler.runs.toString().padStart(runsWidthBowl)} ` +
+      `│ ${bowler.wickets.toString().padStart(wicketsWidth)} ` +
+      `│ ${econ.padStart(econWidth)} │\n`;
   }
 
-  const bowlersWhoDidNotBowl = Array.from(bowlerStats.values())
-    .filter((b) => b.overs === 0)
-    .map((b) => b.name);
+  bowlingText +=
+    "└" + "─".repeat(totalWidthBowl - 2) + "┘";
 
-  if (bowlersWhoDidNotBowl.length > 0 && bowlersWhoBowled.length < 11) {
-    bowlingText += "├────────────────────────────────────────────────────────────┤\n";
-    bowlingText += "│ 🎯 DID NOT BOWL                                             │\n";
-
-    const dnbs = bowlersWhoDidNotBowl.join(", ");
-    const chunks = dnbs.match(/.{1,46}/g) || [];
-
-    for (const chunk of chunks) {
-      bowlingText += `│ ${chunk.padEnd(46)} │\n`;
-    }
-  }
-
-  bowlingText += "└────────────────────────────────────────────────────────────┘";
-
-  // 🔥 SPLIT + ADD
   const bowlingChunks = splitText(bowlingText);
-
   bowlingChunks.forEach((chunk, index) => {
     embed.addFields({
       name: index === 0 ? "🎯 BOWLING" : "🎯 BOWLING (cont.)",
@@ -170,7 +211,7 @@ function createInningsScorecardEmbed(
   return embed;
 }
 
-// -------------------- MATCH SUMMARY --------------------
+// -------------------- MATCH SUMMARY (unchanged) --------------------
 function createMatchSummaryEmbed(
   innings1Stats,
   innings2Stats,
@@ -203,7 +244,7 @@ function createMatchSummaryEmbed(
   return embed;
 }
 
-// -------------------- PARTNERSHIP --------------------
+// -------------------- PARTNERSHIP (unchanged) --------------------
 function createCurrentPartnershipEmbed(matchState) {
   const striker = matchState.battingOrder[matchState.strikerIdx];
   const nonStriker = matchState.battingOrder[matchState.nonStrikerIdx];

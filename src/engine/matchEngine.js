@@ -59,7 +59,7 @@ function getBallQuality(bowler, stadium, isPacer, context) {
   }
 
   //Note: need to check this and come with better plan
-  
+
   // if (context.over >= 16) {
   //   quality *= (bowler.deathBowling || 50) / 50;
   // }
@@ -84,12 +84,15 @@ function getExtra(bowler, bowlerMomentum = 0) {
 }
 
 // -------------------- SHOT RESOLUTION --------------------
-function resolveShot(intent, battingSkill, ballQuality) {
+function resolveShot(intent, battingSkill, ballQuality, isFreeHit) {
   const diff = battingSkill - ballQuality;
   const normalized = Math.max(-20, Math.min(20, diff));
   let score = normalized + normalRandom(0, 5);
   if (intent === "attack") score -= 5;
   if (intent === "defensive") score += 4;
+  if (isFreeHit) {
+    score += 10;
+  }
   return score;
 }
 
@@ -105,10 +108,16 @@ function getWicketChance(intent, success, isSafe = false) {
 }
 
 // -------------------- RUNS (same logic, but we'll add extra runs later) --------------------
-function getRuns(success, batsman, stadium, bowler) {
+function getRuns(success, batsman, stadium, bowler, isFreeHit = false) {
   const power = (batsman.power || 50) / 100;
   const boundarySize = stadium.boundarySize || 5;
-  const boundaryChance = power * (4.5 / boundarySize);
+  let boundaryChance = power * (4.5 / boundarySize);
+
+  // FREE HIT BOOST
+  if (isFreeHit) {
+    boundaryChance *= 1.55;
+    success += 8;
+  }
 
   if (success < -12) return 0;
   if (success < -2) return Math.random() < 0.75 ? 0 : 1;
@@ -152,14 +161,19 @@ function simulateBall(
 
   const isNoBall = extra && extra.type === "noball";
   const isPacer = (bowler.role || "").toLowerCase().includes("fast") ||
-                  (bowler.role || "").toLowerCase().includes("pace");
+    (bowler.role || "").toLowerCase().includes("pace");
 
   // Free hit forces attack intent; no‑ball does not (the shot is still played)
   const intent = decideIntent(batsman, context, isFreeHit);
 
   const battingSkill = getBattingSkill(batsman, isPacer, stadium);
   const ballQuality = getBallQuality(bowler, stadium, isPacer, context);
-  const success = resolveShot(intent, battingSkill, ballQuality);
+  const success = resolveShot(
+    intent,
+    battingSkill,
+    ballQuality,
+    isFreeHit
+  );
 
   // No wicket on free‑hit or no‑ball
   const wicketSafe = isFreeHit || isNoBall;
@@ -174,7 +188,14 @@ function simulateBall(
   }
 
   // Normal runs from the ball
-  let runs = getRuns(success, batsman, stadium, bowler);
+  let runs = getRuns(
+    success,
+    batsman,
+    stadium,
+    bowler,
+    isFreeHit
+  );
+
   let isBoundary = (runs === 4 || runs === 6);
   let totalRuns = runs;
 

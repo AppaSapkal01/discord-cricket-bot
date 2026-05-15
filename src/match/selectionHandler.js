@@ -116,14 +116,14 @@ async function selectNextBatsman(interaction, overNumber, inningNumber, matchSta
   );
 
   const promptMessage = await interaction.channel.send({
-    content: `**${battingTeam.teamName}:** Select your next batsman (30 seconds to respond):`,
+    content: `**${battingTeam.teamName}:** Select your next batsman (15 seconds to respond):`,
     components: [selectMenu]
   });
 
   return new Promise(resolve => {
     const collector = promptMessage.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
-      time: 30000
+      time: SELECTION_TIMEOUT
     });
 
     let resolved = false;
@@ -210,7 +210,7 @@ async function selectBowlerForOver(interaction, availableBowlers, overNumber, in
   if (spinBowlers.length > 0) typeInfo += `🌀 Spin Bowlers: ${spinBowlers.join(", ")}`;
 
   const promptMessage = await interaction.channel.send({
-    content: `**${bowlingTeam.teamName}:** Select your bowler for over ${overNumber} (15s to respond)\n${typeInfo ? `\n${typeInfo}` : ""}`,
+    content: `**${bowlingTeam.teamName}:** Select your bowler for over ${overNumber + 1} (15s to respond)\n${typeInfo ? `\n${typeInfo}` : ""}`,
     components: [selectMenu]
   });
 

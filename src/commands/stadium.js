@@ -109,7 +109,8 @@ module.exports = {
 
     collector.on("end", async () => {
       try {
-        await interaction.editReply({ components: [] });
+        const message = await interaction.fetchReply();
+        await message.edit({ components: [] });
       } catch (e) {
         // Ignore
       }

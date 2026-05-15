@@ -352,12 +352,6 @@ async function saveMatchResult(match) {
 
       const nrr = runRateFor - runRateAgainst;
 
-      // DEBUG LOGGING
-      // console.log(`\n📊 ${teamName} - ${won ? 'WIN ✅' : 'LOSS ❌'}`);
-      // console.log(`   Batting: ${totalRunsScored} runs in ${(totalOversFaced / 6).toFixed(1)} overs (RR: ${runRateFor.toFixed(2)})`);
-      // console.log(`   Bowling: ${totalRunsConceded} runs in ${(totalOversBowled / 6).toFixed(1)} overs (RR: ${runRateAgainst.toFixed(2)})`);
-      // console.log(`   NRR: ${runRateFor.toFixed(3)} - ${runRateAgainst.toFixed(3)} = ${nrr.toFixed(3)}`);
-
       // FINAL ROW - CORRECT COLUMN MAPPING
       const finalRow = [[
         teamName,                              // A: Team Name
@@ -411,7 +405,6 @@ async function saveMatchResult(match) {
       won: match.winner === match.teamB
     });
 
-    // console.log("\n✅ Points table updated successfully");
   });
 }
 
@@ -520,7 +513,6 @@ async function getRandomStadium() {
 
 // ========== RECALCULATE ALL TEAMS NRR (FIX EXISTING DATA) ==========
 async function recalculateAllTeamsNRR() {
-  // console.log("\n🔄 Starting NRR recalculation...\n");
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: PRIVATE_PLAYERS_SPREADSHEET_ID,
@@ -556,16 +548,6 @@ async function recalculateAllTeamsNRR() {
 
     const correctNRR = runRateFor - runRateAgainst;
 
-    // console.log(`\n📊 ${teamName}:`);
-    // console.log(`   Record: ${wins}-${losses} (${points} pts)`);
-    // console.log(`   Batting: ${runsScored} runs @ ${runRateFor.toFixed(2)} RR (${oversFaced} overs)`);
-    // console.log(`   Bowling: ${runsConceded} runs @ ${runRateAgainst.toFixed(2)} RR (${oversBowled} overs)`);
-    // console.log(`   Old NRR: ${row[5]}`);
-    // console.log(`   New NRR: ${correctNRR.toFixed(3)}`);
-
-    if (wins > losses && correctNRR < 0) {
-      // console.log(`   ⚠️ WARNING: Team has winning record but negative NRR! This might indicate data issue.`);
-    }
 
     // Update the NRR column
     const rowIndex = i + 2;
@@ -577,7 +559,139 @@ async function recalculateAllTeamsNRR() {
     });
   }
 
-  // console.log("\n✅ All teams NRR recalculated!");
+}
+
+// ========== STADIUM STATISTICS UPDATE ==========
+async function updateStadiumStats(stadiumName, matchData) {
+  const sheetName = "Stadium DB";
+  const range = `${sheetName}!A2:R`;
+  
+  // 1. Fetch both values and formulas
+  const [valuesRes, formulasRes] = await Promise.all([
+    sheets.spreadsheets.values.get({
+      spreadsheetId: PRIVATE_PLAYERS_SPREADSHEET_ID,
+      range,
+    }),
+    sheets.spreadsheets.values.get({
+      spreadsheetId: PRIVATE_PLAYERS_SPREADSHEET_ID,
+      range,
+      valueRenderOption: "FORMULA", // to get actual formulas
+    }),
+  ]);
+
+  const rows = valuesRes.data.values || [];
+  const formulaRows = formulasRes.data.values || [];
+  let rowIndex = -1;
+  let currentRow = null;
+  let formulaRow = null;
+  
+  for (let i = 0; i < rows.length; i++) {
+    const name = rows[i][0] ? rows[i][0].toString().trim().toLowerCase() : "";
+    if (name === stadiumName.toLowerCase()) {
+      rowIndex = i + 2; // +2 for header row
+      currentRow = rows[i];
+      formulaRow = formulaRows[i]; // may be undefined if row missing
+      break;
+    }
+  }
+  
+  if (rowIndex === -1) {
+    console.error(`Stadium "${stadiumName}" not found. Skipping.`);
+    return;
+  }
+  
+  if (!formulaRow) formulaRow = new Array(18).fill('');
+  
+  // Ensure arrays have length 18
+  while (currentRow.length < 18) currentRow.push('');
+  while (formulaRow.length < 18) formulaRow.push('');
+  
+  // Parse current values (indexes as per column order)
+  const matches = parseInt(currentRow[4] || 0);
+  const firstInningsTotal = parseInt(currentRow[5] || 0);
+  const secondInningsTotal = parseInt(currentRow[6] || 0);
+  const totalWickets = parseInt(currentRow[10] || 0);
+  const pacerWickets = parseInt(currentRow[11] || 0);
+  const spinnerWickets = parseInt(currentRow[12] || 0);
+  const defendWins = parseInt(currentRow[13] || 0);
+  const chaseWins = parseInt(currentRow[14] || 0);
+  const highestSuccessfulChase = parseInt(currentRow[15] || 0);
+  const highestTotal = parseInt(currentRow[16] || 0);
+  const lowestTotal = parseInt(currentRow[17] || 0);
+  
+  // New values
+  const newMatches = matches + 1;
+  const newFirstInningsTotal = firstInningsTotal + matchData.firstInningsScore;
+  const newSecondInningsTotal = secondInningsTotal + matchData.secondInningsScore;
+  const newTotalWickets = totalWickets + matchData.totalWickets;
+  const newPacerWickets = pacerWickets + matchData.pacerWickets;
+  const newSpinnerWickets = spinnerWickets + matchData.spinnerWickets;
+  let newDefendWins = defendWins;
+  let newChaseWins = chaseWins;
+  if (matchData.defendWin) newDefendWins++;
+  if (matchData.chaseWin) newChaseWins++;
+  
+  let newHighestSuccessfulChase = highestSuccessfulChase;
+  if (matchData.chaseWin && matchData.secondInningsScore > highestSuccessfulChase) {
+    newHighestSuccessfulChase = matchData.secondInningsScore;
+  }
+  
+  let newHighestTotal = highestTotal;
+  const maxScore = Math.max(matchData.firstInningsScore, matchData.secondInningsScore);
+  if (maxScore > highestTotal) newHighestTotal = maxScore;
+  
+  let newLowestTotal = lowestTotal;
+  const minScore = Math.min(matchData.firstInningsScore, matchData.secondInningsScore);
+  if (lowestTotal === 0 || minScore < lowestTotal) newLowestTotal = minScore;
+  
+  // Build new row array (18 columns)
+  // Column indices: 0 A,1 B,2 C,3 D,4 E,5 F,6 G,7 H,8 I,9 J,10 K,11 L,12 M,13 N,14 O,15 P,16 Q,17 R
+  const updatedRow = new Array(18);
+  
+  // Preserve columns that have formulas or we don't modify
+  // Keep A, B, C, D (Innings) unchanged
+  updatedRow[0] = currentRow[0]; // Stadium name
+  updatedRow[1] = currentRow[1]; // Country
+  updatedRow[2] = currentRow[2]; // Type
+  updatedRow[3] = formulaRow[3] || currentRow[3]; // D: Innings (formula = matches*2) - preserve formula
+  
+  // E: Matches (we modify)
+  updatedRow[4] = newMatches;
+  // F: 1st Inning Score (cumulative)
+  updatedRow[5] = newFirstInningsTotal;
+  // G: 2nd Inning Score (cumulative)
+  updatedRow[6] = newSecondInningsTotal;
+  
+  // H, I, J are formula columns – preserve original formulas
+  updatedRow[7] = formulaRow[7] || currentRow[7]; // Avg 1st Inns Score
+  updatedRow[8] = formulaRow[8] || currentRow[8]; // Avg 2nd Inns Score
+  updatedRow[9] = formulaRow[9] || currentRow[9]; // Avg Match Total
+  
+  // K: Total Wickets
+  updatedRow[10] = newTotalWickets;
+  // L: Pacer Wickets
+  updatedRow[11] = newPacerWickets;
+  // M: Spinner Wickets
+  updatedRow[12] = newSpinnerWickets;
+  // N: Defend Wins
+  updatedRow[13] = newDefendWins;
+  // O: Chase Wins
+  updatedRow[14] = newChaseWins;
+  // P: Highest Successful Chase
+  updatedRow[15] = newHighestSuccessfulChase;
+  // Q: Highest Total
+  updatedRow[16] = newHighestTotal;
+  // R: Lowest Total
+  updatedRow[17] = newLowestTotal;
+  
+  // Update the row using USER_ENTERED (will not overwrite formulas because we put formulas in H,I,J)
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: PRIVATE_PLAYERS_SPREADSHEET_ID,
+    range: `${sheetName}!A${rowIndex}:R${rowIndex}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [updatedRow] }
+  });
+  
 }
 
 module.exports = {
@@ -598,4 +712,5 @@ module.exports = {
   recalculateAllTeamsNRR,  // Export for fixing existing data
   findPlayerExact,
   matchPlayersExact,
+  updateStadiumStats
 };

@@ -207,6 +207,15 @@ function getBallSymbol(runs, isWicket, extraType) {
   return runs.toString();
 }
 
+function getRequiredMessage(target, runs, overNumber, ballsBowled) {
+  if (!target) return "";
+  const runsNeeded = target - runs;
+  if (runsNeeded <= 0) return "";
+  const totalOvers = 20;
+  const ballsLeft = (totalOvers - overNumber - 1) * 6 + (6 - ballsBowled);
+  return `🎯 **${runsNeeded} runs needed from ${ballsLeft} balls** (RRR: ${(runsNeeded / ballsLeft * 6).toFixed(2)})`;
+}
+
 async function playOver(interaction, matchState, playersMap, stadium, overNumber, inningNumber, target, channelId) {
   const match = matchManager.getMatch(channelId);
   if (!match || !match.isActive || match.stopped) return { endReason: "match_stopped" };
@@ -319,35 +328,67 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       continue;   // wide does not count as a legal ball
     }
 
-    // ---------- NO‑BALL (includes runs from bat + 1 extra) ----------
+    // ---------- NO-BALL ----------
     if (outcome.type === "noball") {
+
       const runsFromBall = outcome.runsFromBall || (outcome.runs - 1);
+
       const comment = getCommentary(runsFromBall, false, "noball");
+
       commentaryText += `\`${ballDisplay}\` ${bowlerName} to ${strikerName} | **NO BALL + ${runsFromBall}** | ${comment}\n`;
+
+      // Only add FREE HIT notification
+      commentaryText += `🎯 **FREE HIT NEXT BALL!**\n`;
+
       commentaryText += `📊 Score: **${matchState.runs}/${matchState.wickets}**\n`;
-      ballEvents.push(outcome.isBoundary ? (runsFromBall === 6 ? "6" : "4") : "NB");
+
+      ballEvents.push(`NB+${runsFromBall}`);
+
       await overMessage.edit(commentaryText);
+
       await sleep(1000);
 
-      ballsBowled++;
-      isFreeHit = true;   // next ball is free hit
+      // IMPORTANT:
+      // NO BALL IS NOT A LEGAL DELIVERY
+      // so DON'T increment ballsBowled
 
-      // Update batsman stats for runs scored off the bat (not the extra)
+      // Next ball becomes free hit
+      isFreeHit = true;
+
+      // Update batsman stats
       if (runsFromBall > 0) {
+
         const strikerKey = strikerName.toLowerCase().trim();
+
         if (!matchState.batsmanStats[strikerKey]) {
-          matchState.batsmanStats[strikerKey] = { name: strikerName, runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
+          matchState.batsmanStats[strikerKey] = {
+            name: strikerName,
+            runs: 0,
+            balls: 0,
+            fours: 0,
+            sixes: 0,
+            out: false
+          };
         }
+
         matchState.batsmanStats[strikerKey].runs += runsFromBall;
+
+        // Batter faced the ball
         matchState.batsmanStats[strikerKey].balls++;
-        if (runsFromBall === 4) matchState.batsmanStats[strikerKey].fours++;
-        if (runsFromBall === 6) matchState.batsmanStats[strikerKey].sixes++;
+
+        if (runsFromBall === 4)
+          matchState.batsmanStats[strikerKey].fours++;
+
+        if (runsFromBall === 6)
+          matchState.batsmanStats[strikerKey].sixes++;
       }
 
-      // Strike rotation on odd runs FROM THE BAT
+      // Rotate strike on odd runs
       if (runsFromBall % 2 === 1) {
-        [matchState.striker, matchState.nonStriker] = [matchState.nonStriker, matchState.striker];
+        [matchState.striker, matchState.nonStriker] =
+          [matchState.nonStriker, matchState.striker];
       }
+
       continue;
     }
 
@@ -405,6 +446,16 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       commentaryText += `🏏 **${newBatsman}** walks out to the crease\n`;
       await overMessage.edit(commentaryText);
       await sleep(1500);
+
+      let phase = "";
+      if (overNumber < 6) phase = "pp";
+      else if (overNumber < 15) phase = "middle";
+      else phase = "death";
+
+      if (!matchState.bowlerPhases) matchState.bowlerPhases = new Map();
+      const bowlerPhaseStats = matchState.bowlerPhases.get(bowlerName) || { pp: 0, middle: 0, death: 0 };
+      bowlerPhaseStats[phase]++;
+      matchState.bowlerPhases.set(bowlerName, bowlerPhaseStats);
 
       ballsBowled++;
       isFreeHit = false;   // free‑hit never carries over after a wicket
@@ -497,6 +548,10 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
   if (matchState.lastWicket && matchState.wickets > 0) {
     const lastWicket = matchState.lastWicket;
     commentaryText += `💀 **Last Wicket:** ${lastWicket.batsman} b ${lastWicket.bowler} ${lastWicket.runs}(${lastWicket.balls}) | Partnership: ${lastWicket.partnershipRuns} runs\n`;
+  }
+
+  if (target) {
+    commentaryText += `\n${getRequiredMessage(target, matchState.runs, overNumber, 6)}\n`;
   }
   commentaryText += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   await overMessage.edit(commentaryText);

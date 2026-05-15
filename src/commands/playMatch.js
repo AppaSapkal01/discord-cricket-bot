@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { getTeamByName, getAllPlayers, getRandomStadium, getStadiumByName, saveMatchResult } = require("../services/sheets");
+const { getTeamByName, getAllPlayers, getRandomStadium, getStadiumByName, saveMatchResult, updateStadiumStats } = require("../services/sheets");
 const { validateTeam } = require("../utils/validator");
 const { handleToss } = require("../match/tossHandler");
 const { selectOpeners } = require("../match/selectionHandler");
@@ -146,7 +146,8 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         wickets: innings1.wickets,
         overs: innings1.overs,
         batsmanStats: { ...innings1.batsmanStats },
-        bowlerStats: new Map(innings1.bowlerStats)
+        bowlerStats: new Map(innings1.bowlerStats),
+         battingOrder: innings1.battingOrder
       };
       await channel.send(`📊 **${battingTeam.teamName}:** ${innings1.runs}/${innings1.wickets} (${innings1.overs} overs)`);
 
@@ -214,11 +215,12 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         wickets: innings2.wickets,
         overs: innings2.overs,
         batsmanStats: { ...innings2.batsmanStats },
-        bowlerStats: new Map(innings2.bowlerStats)
+        bowlerStats: new Map(innings2.bowlerStats),
+         battingOrder: innings2.battingOrder
       };
 
       const { winner, wonBy } = await saveAndAnnounceResult(
-        interaction, matchState, innings1Stats, innings2Stats, target
+        interaction, matchState, innings1Stats, innings2Stats, target, innings1.battingOrder, innings2.battingOrder
       );
 
       let teamAScore, teamAWickets, teamAOvers;
@@ -254,6 +256,59 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         timestamp: Date.now()
       }).catch(err => console.error("Error saving match result:", err));
 
+
+      // ========== UPDATE STADIUM STATISTICS ==========
+      try {
+        // First innings = innings1, Second innings = innings2 (always correct as per simulation flow)
+        const firstInningsScore = innings1.runs;
+        const secondInningsScore = innings2.runs;
+
+        const totalWickets = innings1.wickets + innings2.wickets;
+
+        // Classify wickets
+        let pacerWickets = 0;
+        let spinnerWickets = 0;
+        const allBowlerStats = [
+          ...innings1Stats.bowlerStats.entries(),
+          ...innings2Stats.bowlerStats.entries()
+        ];
+        for (const [bowlerName, stats] of allBowlerStats) {
+          const player = playersMap.get(bowlerName.toLowerCase().trim());
+          if (!player) continue;
+          const role = player.role.toLowerCase();
+          if (role.includes('fast')) {
+            pacerWickets += stats.wickets;
+          } else if (role.includes('spin')) {
+            spinnerWickets += stats.wickets;
+          } else if (role.includes('allrounder')) {
+            if (role.includes('fast')) pacerWickets += stats.wickets;
+            else if (role.includes('spin')) spinnerWickets += stats.wickets;
+            else spinnerWickets += stats.wickets; // default spinner
+          }
+        }
+
+        // Defend = team batting first won, Chase = team batting second won
+        const teamBattedFirst = matchState.teamABattedFirst ? teamA.teamName : teamB.teamName;
+        const defendWin = (winner === teamBattedFirst);
+        const chaseWin = !defendWin;
+
+        const stadiumMatchData = {
+          firstInningsScore,
+          secondInningsScore,
+          totalWickets,
+          pacerWickets,
+          spinnerWickets,
+          defendWin,
+          chaseWin,
+        };
+
+        await updateStadiumStats(stadium.name, stadiumMatchData);
+
+      } catch (err) {
+        console.error("Failed to update stadium stats:", err);
+      }
+
+
       matchManager.deleteMatch(interaction.channelId);
       await channel.send(`✅ Match completed! Use \`/play-match\` again to start a new match.`);
 
@@ -265,7 +320,7 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
     } catch (error) {
       console.error("Match error:", error);
       if (error.code === 50027) {
-        try { await channel.send('❌ Match stopped due to timeout. Please start a new match.'); } catch (e) {}
+        try { await channel.send('❌ Match stopped due to timeout. Please start a new match.'); } catch (e) { }
       } else {
         try { await channel.send(`❌ Error: ${error.message}`).catch(async () => await channel.send(`❌ Error: ${error.message}`)); } catch (e) { await channel.send(`❌ Error: ${error.message}`); }
       }
