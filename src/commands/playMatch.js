@@ -97,7 +97,8 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         striker: "",           // current batsman on strike
         nonStriker: "",        // current non‑striker
         hasBatted: new Set(),  // every player who has walked to crease (trimmed)
-        teamABattedFirst: (battingTeam.teamName === teamA.teamName)
+        teamABattedFirst: (battingTeam.teamName === teamA.teamName),
+        actualBattingOrder: []
       };
 
       matchManager.createMatch(interaction.channelId, matchState);
@@ -109,6 +110,7 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         return;
       }
 
+
       // Initialise immutable batting order and current batsmen
       matchState.battingOrder = [
         openers[0].trim(),
@@ -119,6 +121,8 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
       ];
       matchState.striker = openers[0].trim();
       matchState.nonStriker = openers[1].trim();
+      matchState.actualBattingOrder = [openers[0].trim(), openers[1].trim()];
+
       matchState.hasBatted = new Set([openers[0].trim(), openers[1].trim()]);
 
       // Initialise batsman stats
@@ -147,7 +151,7 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         overs: innings1.overs,
         batsmanStats: { ...innings1.batsmanStats },
         bowlerStats: new Map(innings1.bowlerStats),
-         battingOrder: innings1.battingOrder
+        battingOrder: innings1.battingOrder
       };
       await channel.send(`📊 **${battingTeam.teamName}:** ${innings1.runs}/${innings1.wickets} (${innings1.overs} overs)`);
 
@@ -176,6 +180,7 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
       matchState.lastBowler = null;
       matchState.dismissedBatsmen.clear();
       matchState.hasBatted.clear();
+      matchState.actualBattingOrder = []
 
       const newOpeners = await selectOpeners(interaction, newBattingTeam, 2);
       const matchBeforeInnings2 = matchManager.getMatch(interaction.channelId);
@@ -192,6 +197,7 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
       ];
       matchState.striker = newOpeners[0].trim();
       matchState.nonStriker = newOpeners[1].trim();
+      matchState.actualBattingOrder = [newOpeners[0].trim(), newOpeners[1].trim()];
       matchState.hasBatted = new Set([newOpeners[0].trim(), newOpeners[1].trim()]);
 
       matchState.battingOrder.forEach(name => {
@@ -216,7 +222,7 @@ Starting T20 match between ${teamA.teamName} and ${teamB.teamName} at ${stadium.
         overs: innings2.overs,
         batsmanStats: { ...innings2.batsmanStats },
         bowlerStats: new Map(innings2.bowlerStats),
-         battingOrder: innings2.battingOrder
+        battingOrder: innings2.battingOrder
       };
 
       const { winner, wonBy } = await saveAndAnnounceResult(

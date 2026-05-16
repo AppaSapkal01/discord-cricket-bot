@@ -54,27 +54,33 @@ async function saveSheetRange(sheetName, range, rows) {
     }
 }
 
-// ========== BATTING SHEET (A:R) ==========
+// ========== BATTING SHEET ==========
+// Column layout (0-based index):
+// Written in two ranges to skip G(6) and H(7):
+//   A2:F  → indices 0-5
+//   I2:X  → indices 8-23
+
+const BATTING_TOTAL_COLS = 24; // A through X
+
 async function updateBattingSheet(sheetName, players) {
     if (players.length === 0) {
         console.warn(`⚠️ No players to update for ${sheetName}`);
         return;
     }
 
-    // Load existing rows from A2:R – but the API may return rows of variable length.
-    let rows = await loadSheetRange(sheetName, "A2:R");
-    // Normalize: ensure each row has exactly 18 columns (A to R)
+    let rows = await loadSheetRange(sheetName, "A2:X");
     rows = rows.map(row => {
-        const newRow = [...row];
-        while (newRow.length < 18) newRow.push(""); // fill missing with empty string
-        return newRow;
+        const r = [...row];
+        while (r.length < BATTING_TOTAL_COLS) r.push("");
+        return r;
     });
 
-    // Create map with lowercase name as key
     const map = new Map();
     rows.forEach((row, idx) => {
         if (row[0]) map.set(row[0].toLowerCase().trim(), { rowIndex: idx, row });
     });
+
+    const toNum = (val) => (val !== undefined && val !== "") ? Number(val) : 0;
 
     for (const p of players) {
         if (!p.name || !p.name.trim()) {
@@ -86,136 +92,183 @@ async function updateBattingSheet(sheetName, players) {
 
         let row;
         if (map.has(key)) {
-            const entry = map.get(key);
-            row = entry.row;
+            row = map.get(key).row;
         } else {
-            // New player: create a row with 18 empty strings
-            row = new Array(18).fill("");
+            row = new Array(BATTING_TOTAL_COLS).fill("");
             row[0] = p.name;
-            row[1] = ""; // format
+            // row[1] (Format) left blank — admin fills it
             rows.push(row);
             map.set(key, { rowIndex: rows.length - 1, row });
         }
 
-        // Safely convert existing values to numbers (empty string = 0)
-        const toNum = (val) => (val && val !== "") ? Number(val) : 0;
-
-        // C: Matches (index 2)
+        // C=2  Matches
         row[2] = toNum(row[2]) + 1;
-        // D: Runs (index 3)
+        // D=3  Runs
         row[3] = toNum(row[3]) + (p.runs || 0);
-        // E: Balls (index 4)
+        // E=4  Balls
         row[4] = toNum(row[4]) + (p.balls || 0);
-        // F: Not Outs (index 5)
+        // F=5  Not Outs
         row[5] = toNum(row[5]) + (p.out ? 0 : 1);
-        // I: 30+ (index 8)
-        if (p.runs >= 30) row[8] = toNum(row[8]) + 1;
-        // J: Fours (index 9)
-        row[9] = toNum(row[9]) + (p.fours || 0);
-        // K: Sixes (index 10)
-        row[10] = toNum(row[10]) + (p.sixes || 0);
-        // L: Highest Score (index 11)
-        const currentHighest = toNum(row[11]);
-        if (p.runs > currentHighest) row[11] = p.runs;
-        // M: 50s (index 12)
-        if (p.runs >= 50 && p.runs < 100) row[12] = toNum(row[12]) + 1;
-        // N: 100s (index 13)
-        if (p.runs >= 100) row[13] = toNum(row[13]) + 1;
-        // O: Runs Batting First (index 14)
-        if (isFirstInnings) row[14] = toNum(row[14]) + (p.runs || 0);
-        // P: Balls Batting First (index 15)
-        if (isFirstInnings) row[15] = toNum(row[15]) + (p.balls || 0);
-        // Q: Runs Chasing (index 16)
-        if (!isFirstInnings) row[16] = toNum(row[16]) + (p.runs || 0);
-        // R: Balls Chasing (index 17)
-        if (!isFirstInnings) row[17] = toNum(row[17]) + (p.balls || 0);
 
+        // G=6 SR and H=7 Avg are AUTO-CALCULATED — intentionally skipped
+
+        // I=8  30+ Scores
+        if ((p.runs || 0) >= 30) row[8] = toNum(row[8]) + 1;
+        // J=9  Fours
+        row[9] = toNum(row[9]) + (p.fours || 0);
+        // K=10 Sixes
+        row[10] = toNum(row[10]) + (p.sixes || 0);
+        // L=11 Highest Score
+        if ((p.runs || 0) > toNum(row[11])) row[11] = p.runs;
+        // M=12 Half Centuries (50-99)
+        if ((p.runs || 0) >= 50 && (p.runs || 0) < 100) row[12] = toNum(row[12]) + 1;
+        // N=13 Centuries (100+)
+        if ((p.runs || 0) >= 100) row[13] = toNum(row[13]) + 1;
+        // O=14 Runs Batting First
+        if (isFirstInnings) row[14] = toNum(row[14]) + (p.runs || 0);
+        // P=15 Balls Batting First
+        if (isFirstInnings) row[15] = toNum(row[15]) + (p.balls || 0);
+        // Q=16 Runs Chasing
+        if (!isFirstInnings) row[16] = toNum(row[16]) + (p.runs || 0);
+        // R=17 Balls Chasing
+        if (!isFirstInnings) row[17] = toNum(row[17]) + (p.balls || 0);
+        // S=18 Runs vs Pace
+        row[18] = toNum(row[18]) + (p.runsVsPace || 0);
+        // T=19 Balls vs Pace
+        row[19] = toNum(row[19]) + (p.ballsVsPace || 0);
+        // U=20 Runs vs Spin
+        row[20] = toNum(row[20]) + (p.runsVsSpin || 0);
+        // V=21 Balls vs Spin
+        row[21] = toNum(row[21]) + (p.ballsVsSpin || 0);
+        // W=22 Outs vs Pace — integer count
+        row[22] = toNum(row[22]) + (p.outVsPace || 0);
+        // X=23 Outs vs Spin — integer count
+        row[23] = toNum(row[23]) + (p.outVsSpin || 0);
     }
 
-    // Ensure every row has exactly 18 columns before writing (redundant safety)
     const finalRows = rows.map(row => {
         const r = [...row];
-        while (r.length < 18) r.push("");
+        while (r.length < BATTING_TOTAL_COLS) r.push("");
         return r;
     });
-    await saveSheetRange(sheetName, "A2:R", finalRows);
+
+    // Write A:F (indices 0-5), skipping G and H
+    await saveSheetRange(sheetName, "A2:F", finalRows.map(r => r.slice(0, 6)));
+    // Write I:X (indices 8-23), skipping G and H
+    await saveSheetRange(sheetName, "I2:X", finalRows.map(r => r.slice(8, 24)));
 }
 
-// ========== BOWLING SHEET (A:L) ==========
-// Similar logic, ensure rows have 12 columns
+// ========== BOWLING SHEET ==========
+// Column layout (0-based index):
+// Written in two ranges to skip G(6) and H(7):
+//   A2:F  → indices 0-5
+//   I2:L  → indices 8-11
+
+const BOWLING_TOTAL_COLS = 12; // A through L
+
 async function updateBowlingSheet(sheetName, bowlers, squadPlayers, bowlingPhases = {}) {
     let rows = await loadSheetRange(sheetName, "A2:L");
     rows = rows.map(row => {
-        const newRow = [...row];
-        while (newRow.length < 12) newRow.push("");
-        return newRow;
+        const r = [...row];
+        while (r.length < BOWLING_TOTAL_COLS) r.push("");
+        return r;
     });
+
     const map = new Map();
     rows.forEach((row, idx) => {
         if (row[0]) map.set(row[0].toLowerCase().trim(), { rowIndex: idx, row });
     });
+
     const processed = new Set();
-    const toNum = (val) => (val && val !== "") ? Number(val) : 0;
+    const toNum = (val) => (val !== undefined && val !== "") ? Number(val) : 0;
 
     for (const b of bowlers) {
         if (!b.name) continue;
         const key = b.name.toLowerCase().trim();
         processed.add(key);
-        const currentBalls = oversToBalls(b.overs);
+
         let row;
         if (map.has(key)) {
             row = map.get(key).row;
         } else {
-            row = new Array(12).fill("");
+            row = new Array(BOWLING_TOTAL_COLS).fill("");
             row[0] = b.name;
+            // row[1] (Format) left blank — admin fills it
             rows.push(row);
             map.set(key, { rowIndex: rows.length - 1, row });
         }
-        row[2] = toNum(row[2]) + 1; // Matches
+
+        // C=2  Matches
+        row[2] = toNum(row[2]) + 1;
+        // D=3  Overs (stored as "X.Y" string)
         const prevBalls = oversToBalls(row[3] || "0.0");
+        const currentBalls = oversToBalls(b.overs);
         row[3] = ballsToOvers(prevBalls + currentBalls);
+        // E=4  Runs Conceded
         row[4] = toNum(row[4]) + (b.runs || 0);
+        // F=5  Wickets
         row[5] = toNum(row[5]) + (b.wickets || 0);
+
+        // G=6 Economy and H=7 Avg are AUTO-CALCULATED — intentionally skipped
+
+        // I=8  Best Figures
         const currentBest = row[8] ? row[8].toString() : "0/0";
         const [bestW, bestR] = currentBest.split("/").map(Number);
-        if (b.wickets > bestW || (b.wickets === bestW && b.runs < bestR)) row[8] = `${b.wickets}/${b.runs}`;
+        if (b.wickets > bestW || (b.wickets === bestW && b.runs < bestR)) {
+            row[8] = `${b.wickets}/${b.runs}`;
+        }
+        // J=9  PP Wickets
         row[9] = toNum(row[9]) + (bowlingPhases[key]?.pp || 0);
+        // K=10 Middle Wickets
         row[10] = toNum(row[10]) + (bowlingPhases[key]?.middle || 0);
+        // L=11 Death Wickets
         row[11] = toNum(row[11]) + (bowlingPhases[key]?.death || 0);
     }
+
+    // Squad players who didn't bowl still get a match count increment
     for (const squadPlayer of squadPlayers) {
         if (!squadPlayer) continue;
         const key = squadPlayer.toLowerCase().trim();
         if (processed.has(key)) continue;
+
         let row;
         if (map.has(key)) {
             row = map.get(key).row;
             row[2] = toNum(row[2]) + 1;
         } else {
-            row = new Array(12).fill("");
+            row = new Array(BOWLING_TOTAL_COLS).fill("");
             row[0] = squadPlayer;
             rows.push(row);
+            map.set(key, { rowIndex: rows.length - 1, row });
         }
     }
+
     const finalRows = rows.map(row => {
         const r = [...row];
-        while (r.length < 12) r.push("");
+        while (r.length < BOWLING_TOTAL_COLS) r.push("");
         return r;
     });
-    await saveSheetRange(sheetName, "A2:L", finalRows);
-}// ========== POSITION SHEET ==========
+
+    // Write A:F (indices 0-5), skipping G and H
+    await saveSheetRange(sheetName, "A2:F", finalRows.map(r => r.slice(0, 6)));
+    // Write I:L (indices 8-11), skipping G and H
+    await saveSheetRange(sheetName, "I2:L", finalRows.map(r => r.slice(8, 12)));
+}
+
+// ========== POSITION SHEET ==========
 async function updatePositionSheet(playersWithPosition) {
     let rows = await loadSheetRange("Stats_position", "A2:G");
     rows = rows.map(row => {
-        const newRow = [...row];
-        while (newRow.length < 7) newRow.push("");
-        return newRow;
+        const r = [...row];
+        while (r.length < 7) r.push("");
+        return r;
     });
     const map = new Map();
     rows.forEach((row, idx) => {
         if (row[0] && row[1]) map.set(`${row[0].toLowerCase().trim()}|${row[1]}`, { rowIndex: idx, row });
     });
-    const toNum = (val) => (val && val !== "") ? Number(val) : 0;
+    const toNum = (val) => (val !== undefined && val !== "") ? Number(val) : 0;
+
     for (const p of playersWithPosition) {
         if (!p.name || !p.position) continue;
         const key = `${p.name.toLowerCase().trim()}|${p.position}`;
@@ -234,6 +287,7 @@ async function updatePositionSheet(playersWithPosition) {
         row[5] = toNum(row[5]) + (p.balls || 0);
         row[6] = toNum(row[6]) + (p.out ? 0 : 1);
     }
+
     const finalRows = rows.map(row => {
         const r = [...row];
         while (r.length < 7) r.push("");
@@ -262,8 +316,8 @@ async function getPlayerStats(playerName, type = "alltime") {
     const battingSheet = type === "current" ? "Batting_Current" : "Batting_alltime";
     const bowlingSheet = type === "current" ? "Bowling_Current" : "Bowling_alltime";
     const [battingRes, bowlingRes] = await Promise.all([
-        sheets.spreadsheets.values.get({ spreadsheetId: PLAYERS_STATS_SPREADSHEET_ID, range: `${battingSheet}!A2:F` }),
-        sheets.spreadsheets.values.get({ spreadsheetId: PLAYERS_STATS_SPREADSHEET_ID, range: `${bowlingSheet}!A2:F` }),
+        sheets.spreadsheets.values.get({ spreadsheetId: PLAYERS_STATS_SPREADSHEET_ID, range: `${battingSheet}!A2:N` }),
+        sheets.spreadsheets.values.get({ spreadsheetId: PLAYERS_STATS_SPREADSHEET_ID, range: `${bowlingSheet}!A2:L` }),
     ]);
     const battingRows = battingRes.data.values || [];
     const bowlingRows = bowlingRes.data.values || [];
@@ -293,15 +347,45 @@ function calculatePlayerStats(battingRow, bowlingRow) {
     const battingOuts = Math.max(battingMatches - battingNotOuts, 1);
     const strikeRate = battingBalls > 0 ? ((battingRuns / battingBalls) * 100).toFixed(2) : "0.00";
     const battingAvg = (battingRuns / battingOuts).toFixed(2);
+    const fours = Number(battingRow?.[9] || 0);
+    const sixes = Number(battingRow?.[10] || 0);
+    const highestScore = battingRow?.[11] ? battingRow[11].toString() : "0";
+    const fifties = Number(battingRow?.[12] || 0);
+    const centuries = Number(battingRow?.[13] || 0);
+    const boundaryRate = (battingRuns > 0) ? (((fours * 4 + sixes * 6) / battingRuns) * 100).toFixed(1) : "0.0";
+    const ballsPerBoundary =  battingRow?.[26] || "0";
     const bowlingMatches = Number(bowlingRow?.[2] || 0);
     const bowlingOvers = bowlingRow?.[3] || "0.0";
     const bowlingRuns = Number(bowlingRow?.[4] || 0);
     const bowlingWickets = Number(bowlingRow?.[5] || 0);
     const economy = parseFloat(bowlingOvers) > 0 ? (bowlingRuns / parseFloat(bowlingOvers)).toFixed(2) : "0.00";
     const bowlingAvg = bowlingWickets > 0 ? (bowlingRuns / bowlingWickets).toFixed(2) : "0.00";
+    const bestFigures = bowlingRow?.[8] || "0/0";
     return {
-        batting: { matches: battingMatches, runs: battingRuns, balls: battingBalls, notOuts: battingNotOuts, strikeRate, average: battingAvg },
-        bowling: { matches: bowlingMatches, wickets: bowlingWickets, overs: bowlingOvers, runs: bowlingRuns, economy, average: bowlingAvg },
+        batting: {
+            matches: battingMatches,
+            runs: battingRuns,
+            balls: battingBalls,
+            notOuts: battingNotOuts,
+            strikeRate,
+            average: battingAvg,
+            fours,
+            sixes,
+            highestScore,
+            fifties,
+            centuries,
+            boundaryRate,
+            ballsPerBoundary
+        },
+        bowling: {
+            matches: bowlingMatches,
+            wickets: bowlingWickets,
+            overs: bowlingOvers,
+            runs: bowlingRuns,
+            economy,
+            average: bowlingAvg,
+            bestFigures
+        }
     };
 }
 

@@ -8,6 +8,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function simulateInnings(interaction, matchState, playersMap, stadium, inningNumber, target = null) {
   const { channelId, maxOvers } = matchState;
 
+  if (!matchState.actualBattingOrder) {
+    matchState.actualBattingOrder = [...matchState.battingOrder];
+  }
+
   let inningsMessage = `\n🏏 **INNINGS ${inningNumber}** 🏏\n`;
   inningsMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   inningsMessage += `📋 **${matchState.battingTeam.teamName} Batting**\n`;
@@ -34,7 +38,8 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
         wickets: matchState.wickets,
         overs: displayOversCompleted,
         batsmanStats: matchState.batsmanStats,
-        bowlerStats: matchState.bowlerStats
+        bowlerStats: matchState.bowlerStats,
+        battingOrder: [...matchState.actualBattingOrder]
       };
     }
     if (matchState.wickets >= 10) break;
@@ -56,7 +61,8 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
         wickets: matchState.wickets,
         overs: displayOversCompleted,
         batsmanStats: matchState.batsmanStats,
-        bowlerStats: matchState.bowlerStats
+        bowlerStats: matchState.bowlerStats,
+        battingOrder: [...matchState.actualBattingOrder]
       };
     }
 
@@ -102,7 +108,7 @@ async function simulateInnings(interaction, matchState, playersMap, stadium, inn
     overs: displayOversCompleted,
     batsmanStats: matchState.batsmanStats,
     bowlerStats: matchState.bowlerStats,
-    battingOrder: [...matchState.battingOrder]
+    battingOrder: [...matchState.actualBattingOrder]
   };
 }
 

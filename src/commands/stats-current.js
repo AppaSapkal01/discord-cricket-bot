@@ -8,7 +8,7 @@ const {
 module.exports = {
 
     data: new SlashCommandBuilder()
-        .setName("stats-current")
+        .setName("stats-tournament")
         .setDescription("Get current player stats")
         .addStringOption(option =>
             option

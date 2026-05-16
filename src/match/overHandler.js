@@ -6,16 +6,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const commentary = {
   0: [
-    "Dot ball! Good tight delivery, the batter can’t find the gap.",
+    "Dot ball! Good tight delivery, the batter can't find the gap.",
     "Excellent bowling on that occasion, no run added to the total.",
     "Defended solidly back to the bowler, pressure continues to build.",
     "Beaten outside off! The batter had no answer to that delivery.",
-    "Straight to the fielder and they’ll get nothing from it.",
+    "Straight to the fielder and they'll get nothing from it.",
     "Watchful batting there, carefully played but no run available.",
     "The bowler keeps things nice and tight, another dot ball.",
     "Sharp fielding inside the circle cuts off any chance of a single.",
     "Nicely bowled into the channel, batter forced onto the back foot.",
-    "Good discipline from the bowling side, they’re building pressure here.",
+    "Good discipline from the bowling side, they're building pressure here.",
     "Tapped gently towards point but the fielder is quick to it.",
     "The batter wanted a run there for a moment, but wisely sent back.",
     "A probing delivery outside off stump, left alone comfortably.",
@@ -25,14 +25,13 @@ const commentary = {
     "Driven firmly but straight to cover, no run there at all.",
     "Tidy cricket from the bowling unit, not giving away anything easy."
   ],
-
   1: [
     "Quick single taken! Good awareness between the wickets.",
-    "Tapped softly into the gap and they’ll comfortably get one.",
+    "Tapped softly into the gap and they'll comfortably get one.",
     "Easy rotation of strike, smart batting under pressure.",
     "Just a single, but every run matters in this situation.",
     "Worked away nicely towards square leg for a run.",
-    "Guided down to third man and they’ll collect a single.",
+    "Guided down to third man and they'll collect a single.",
     "Soft hands from the batter, they steal a quick run there.",
     "Pushed gently towards mid-on and they move through swiftly.",
     "Good communication between the batters, no hesitation there.",
@@ -46,9 +45,8 @@ const commentary = {
     "A gentle push into the off side and they scamper through quickly.",
     "Nicely played with soft hands, ensuring an easy single."
   ],
-
   2: [
-    "Excellent running between the wickets, they’ll come back for two.",
+    "Excellent running between the wickets, they'll come back for two.",
     "Well placed shot into the deep and the batters run hard.",
     "That was beautifully timed and they comfortably pick up a couple.",
     "Great commitment from both batters, turning one into two.",
@@ -61,23 +59,22 @@ const commentary = {
     "Strong running effort! The fitness levels are on display here.",
     "The fielders were a little slow getting to the ball and they capitalize.",
     "Punched through the covers and they return comfortably for two.",
-    "Quick turn at the striker’s end ensures they complete the second.",
+    "Quick turn at the striker's end ensures they complete the second.",
     "Excellent awareness from the batting pair, good cricket all around.",
     "That was hit into a big gap and they make full use of it.",
     "Nicely worked into the deep and they collect two valuable runs.",
     "Brilliant placement combined with energetic running between the wickets."
   ],
-
   3: [
     "Outstanding running! They push hard and complete three runs.",
     "Excellent commitment from both batters, turning it into three.",
     "The ball rolled deep into the outfield and they come back again.",
-    "That’s brilliant awareness and fitness on display from the batting side.",
+    "That's brilliant awareness and fitness on display from the batting side.",
     "Huge gap in the field and they take full advantage with three runs.",
     "Aggressive running between the wickets, the crowd appreciates that effort.",
     "The fielders were slow to recover and the batters make them pay.",
     "Terrific placement and even better running earns them three.",
-    "The chase from the fielder wasn’t quick enough and they complete three.",
+    "The chase from the fielder wasn't quick enough and they complete three.",
     "Fantastic effort from both batters, they never stopped running.",
     "The throw comes in late and the third run is completed safely.",
     "Driven beautifully into the deep and they run all three comfortably.",
@@ -88,7 +85,6 @@ const commentary = {
     "Wonderful awareness of the field placement allows them to collect three.",
     "A rare triple in modern cricket, and the crowd loves it."
   ],
-
   4: [
     "FOUR! Cracked beautifully through the covers, no stopping that.",
     "What a glorious boundary! Timed to absolute perfection.",
@@ -103,84 +99,80 @@ const commentary = {
     "Beautifully placed behind point and it races away to the ropes.",
     "The bowler overpitched slightly and gets punished immediately.",
     "Delicate touch combined with perfect timing brings another boundary.",
-    "That’s a trademark cricket shot, absolutely textbook stuff.",
+    "That's a trademark cricket shot, absolutely textbook stuff.",
     "The batter leans into the drive and sends it screaming to the fence.",
     "Superb placement! Split the fielders perfectly for four runs.",
     "Picked up off the pads and dispatched fine for a boundary.",
     "Pure elegance from the batter, that shot deserved four."
   ],
-
   6: [
-    "SIX! That’s been launched high and handsome into the stands!",
+    "SIX! That's been launched high and handsome into the stands!",
     "Massive hit! The crowd erupts as the ball disappears into the night sky.",
     "Clean strike from the batter and it sails well beyond the boundary.",
-    "What a shot! That’s gone a long, long way.",
+    "What a shot! That's gone a long, long way.",
     "Picked the length early and absolutely smashed it for six.",
     "Into the crowd it goes! The batter is dealing in maximums now.",
     "That was struck with incredible power and timing.",
     "Huge hit down the ground, the bowler can only watch helplessly.",
     "The batter stands tall and sends that delivery over the ropes with ease.",
     "A monstrous six! That nearly left the stadium.",
-    "That’s gone straight into the second tier, unbelievable striking.",
+    "That's gone straight into the second tier, unbelievable striking.",
     "The sound off the bat told the whole story, massive maximum.",
     "Short ball punished brutally, that disappeared in a flash.",
     "The batter clears the front leg and launches it deep into the stands.",
-    "What incredible power from the batter, that’s a gigantic hit.",
+    "What incredible power from the batter, that's a gigantic hit.",
     "No chance for any fielder there, that was always heading out of the ground.",
     "The crowd is loving this batting masterclass, another huge six.",
     "Absolutely hammered! That ball had wings on it."
   ],
-
   wicket: [
     "OUT! Clean bowled! The stumps are shattered and the batter has to walk back.",
     "Huge wicket for the bowling side and the crowd erupts in celebration.",
     "CAUGHT! Safe hands in the deep and the batter departs.",
     "TIMBER! The bowler completely outfoxed the batter there.",
     "LBW! Big appeal and the umpire raises the finger immediately.",
-    "Gone! That’s a massive breakthrough at a crucial moment in the game.",
+    "Gone! That's a massive breakthrough at a crucial moment in the game.",
     "Edges it behind and the keeper makes no mistake whatsoever.",
     "The batter tried to go big but holes out straight to the fielder.",
     "Excellent bowling strategy finally pays off with a wicket.",
     "Dragged it back onto the stumps, the batter looks disappointed.",
     "Caught at cover! Sharp reflexes from the fielder inside the ring.",
     "A soft dismissal and the batting side loses an important wicket.",
-    "That’s a brilliant catch under pressure, outstanding fielding effort.",
+    "That's a brilliant catch under pressure, outstanding fielding effort.",
     "The bowler has been threatening for a while and finally gets rewarded.",
     "A massive moment in the match as the batter heads back to the pavilion.",
     "The slower ball does the trick and the batter mistimes it completely.",
     "Straight up in the air! The fielder settles under it comfortably.",
     "That could be a game-changing wicket for the bowling team."
   ],
-
   noball: [
-    "No-ball called! The bowler has overstepped and that’s an extra run.",
+    "No-ball called! The bowler has overstepped and that's an extra run.",
     "Free hit coming up next ball, huge opportunity for the batting side.",
-    "The umpire stretches out the arm, it’s a no-ball.",
-    "That’s poor discipline from the bowler, gifting away a free run.",
-    "Overstepped by quite a margin there, the captain won’t be happy.",
+    "The umpire stretches out the arm, it's a no-ball.",
+    "That's poor discipline from the bowler, gifting away a free run.",
+    "Overstepped by quite a margin there, the captain won't be happy.",
     "A costly mistake from the bowler and now a free hit follows.",
-    "Front foot just lands beyond the line and it’s called immediately.",
+    "Front foot just lands beyond the line and it's called immediately.",
     "No-ball! The pressure eases slightly for the batting team.",
-    "That delivery won’t count and the batter gets another chance.",
+    "That delivery won't count and the batter gets another chance.",
     "The bowler loses rhythm there and sends down an illegal delivery.",
     "Big moment in the over as the umpire signals a no-ball.",
     "Free hit incoming! The crowd senses something exciting could happen.",
-    "That’s a momentum-shifting mistake from the bowling side.",
+    "That's a momentum-shifting mistake from the bowling side.",
     "The batter survives thanks to the bowler overstepping.",
-    "Careless error from the bowler and they’ll have to reload again.",
+    "Careless error from the bowler and they'll have to reload again.",
     "No-ball signaled and the batting side gladly accepts the bonus run."
   ],
-
   wide: [
-    "Wide ball! That was far beyond the batter’s reach.",
+    "Wide ball! That was far beyond the batter's reach.",
     "The umpire spreads the arms, signaling a wide delivery.",
     "Wayward bowling there, gives away an extra run.",
-    "Too far outside off stump and it’s called wide immediately.",
-    "Down the leg side and the keeper can’t prevent the extra.",
-    "That delivery slipped badly from the bowler’s control.",
+    "Too far outside off stump and it's called wide immediately.",
+    "Down the leg side and the keeper can't prevent the extra.",
+    "That delivery slipped badly from the bowler's control.",
     "Pressure causing mistakes now as another wide is bowled.",
-    "The batter didn’t even think about playing at that one.",
-    "That’s a loose delivery and the bowling side won’t want too many of those.",
+    "The batter didn't even think about playing at that one.",
+    "That's a loose delivery and the bowling side won't want too many of those.",
     "Wide called! The line was completely wrong on that occasion.",
     "The bowler sprays it down the leg side for an easy extra.",
     "Another extra added to the total through poor bowling discipline.",
@@ -216,6 +208,46 @@ function getRequiredMessage(target, runs, overNumber, ballsBowled) {
   return `🎯 **${runsNeeded} runs needed from ${ballsLeft} balls** (RRR: ${(runsNeeded / ballsLeft * 6).toFixed(2)})`;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Determine bowler type from the player object.
+// Adjust the property name to match whatever your playersMap stores
+// (common options: bowler.type, bowler.bowlingType, bowler.style).
+// Returns "pace" | "spin" | "unknown"
+// ─────────────────────────────────────────────────────────────
+function getBowlerType(bowler) {
+  if (!bowler) return "unknown";
+  const raw = (bowler.type || bowler.bowlingType || bowler.style || "").toLowerCase();
+  if (raw.includes("pace") || raw.includes("fast") || raw.includes("medium")) return "pace";
+  if (raw.includes("spin") || raw.includes("off") || raw.includes("leg") || raw.includes("slow")) return "spin";
+  return "unknown";
+}
+
+// ─────────────────────────────────────────────────────────────
+// Ensure a full batsmanStats entry exists (including pace/spin
+// breakdown fields) and return the normalised key.
+// All accumulator fields default to 0 (integers, not booleans).
+// ─────────────────────────────────────────────────────────────
+function ensureBatsmanEntry(matchState, playerName) {
+  const key = playerName.toLowerCase().trim();
+  if (!matchState.batsmanStats[key]) {
+    matchState.batsmanStats[key] = {
+      name: playerName,
+      runs: 0,
+      balls: 0,
+      fours: 0,
+      sixes: 0,
+      out: false,
+      runsVsPace: 0,
+      ballsVsPace: 0,
+      runsVsSpin: 0,
+      ballsVsSpin: 0,
+      outVsPace: 0,   // integer count
+      outVsSpin: 0,   // integer count
+    };
+  }
+  return key;
+}
+
 async function playOver(interaction, matchState, playersMap, stadium, overNumber, inningNumber, target, channelId) {
   const match = matchManager.getMatch(channelId);
   if (!match || !match.isActive || match.stopped) return { endReason: "match_stopped" };
@@ -233,7 +265,7 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
     lastBallWasBoundary: false
   };
 
-  // --- Bowler selection (unchanged) ---
+  // --- Bowler selection ---
   let availableBowlers = getAvailableBowlers(matchState.bowlingTeam, playersMap);
   availableBowlers = availableBowlers.filter(name => {
     const oversBowled = matchState.bowlerOvers.get(name) || 0;
@@ -250,6 +282,9 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
   if (!bowlerName) return { endReason: "match_stopped" };
   const bowler = playersMap.get(bowlerName.toLowerCase().trim());
 
+  // Resolve bowler type once per over — used for every ball in this over
+  const bowlerType = getBowlerType(bowler);
+
   if (!matchState.bowlerStats.has(bowlerName)) {
     matchState.bowlerStats.set(bowlerName, { name: bowlerName, runs: 0, wickets: 0, overs: 0 });
   }
@@ -257,6 +292,7 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
   bowlerStats.overs++;
   matchState.bowlerOvers.set(bowlerName, bowlerStats.overs);
   matchState.lastBowler = bowlerName;
+
   const displayOverNumber = overNumber + 1;
   let commentaryText = `\n🎯 **Over ${displayOverNumber}** - ${bowlerName} comes into bowl\n`;
   commentaryText += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -285,7 +321,6 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
     const ballNumber = ballsBowled + 1;
     const ballDisplay = `${overNumber}.${ballNumber}`;
 
-    // Required rate for context
     let requiredRate = 0;
     if (target) {
       const ballsLeft = (20 - overNumber) * 6 - ballsBowled;
@@ -300,23 +335,14 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       dew: stadium.dew > 5 && inningNumber === 2
     };
 
-    // ========== SIMULATE BALL (engine handles extras, free hit, no‑ball) ==========
-    const outcome = simulateBall(
-      striker,
-      bowler,
-      stadium,
-      context,
-      isFreeHit,
-      momentumFactors.bowler
-    );
+    const outcome = simulateBall(striker, bowler, stadium, context, isFreeHit, momentumFactors.bowler);
 
-    // Update global runs
     matchState.runs += outcome.runs;
     overRuns += outcome.runs;
     overState.runsInOver += outcome.runs;
     bowlerStats.runs += outcome.runs;
 
-    // ---------- WIDE ----------
+    // ─────────── WIDE ───────────
     if (outcome.type === "wide") {
       const comment = getCommentary(0, false, "wide");
       commentaryText += `\`${ballDisplay}\` ${bowlerName} to ${strikerName} | **WIDE** | ${comment}\n`;
@@ -325,77 +351,42 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       await overMessage.edit(commentaryText);
       await sleep(1000);
       isFreeHit = false;
-      continue;   // wide does not count as a legal ball
+      continue; // wide does not count as a legal ball
     }
 
-    // ---------- NO-BALL ----------
+    // ─────────── NO-BALL ───────────
     if (outcome.type === "noball") {
-
       const runsFromBall = outcome.runsFromBall || (outcome.runs - 1);
-
       const comment = getCommentary(runsFromBall, false, "noball");
-
       commentaryText += `\`${ballDisplay}\` ${bowlerName} to ${strikerName} | **NO BALL + ${runsFromBall}** | ${comment}\n`;
-
-      // Only add FREE HIT notification
       commentaryText += `🎯 **FREE HIT NEXT BALL!**\n`;
-
       commentaryText += `📊 Score: **${matchState.runs}/${matchState.wickets}**\n`;
-
       ballEvents.push(`NB+${runsFromBall}`);
-
       await overMessage.edit(commentaryText);
-
       await sleep(1000);
 
-      // IMPORTANT:
-      // NO BALL IS NOT A LEGAL DELIVERY
-      // so DON'T increment ballsBowled
-
-      // Next ball becomes free hit
+      // No-ball is not a legal delivery — don't increment ballsBowled
       isFreeHit = true;
 
-      // Update batsman stats
-      if (runsFromBall > 0) {
+      // Still counts as a ball faced and runs scored by the batter
+      const strikerKey = ensureBatsmanEntry(matchState, strikerName);
+      const bs = matchState.batsmanStats[strikerKey];
+      bs.runs += runsFromBall;
+      bs.balls++;
+      if (bowlerType === "pace") { bs.runsVsPace += runsFromBall; bs.ballsVsPace++; }
+      else if (bowlerType === "spin") { bs.runsVsSpin += runsFromBall; bs.ballsVsSpin++; }
+      if (runsFromBall === 4) bs.fours++;
+      if (runsFromBall === 6) bs.sixes++;
 
-        const strikerKey = strikerName.toLowerCase().trim();
-
-        if (!matchState.batsmanStats[strikerKey]) {
-          matchState.batsmanStats[strikerKey] = {
-            name: strikerName,
-            runs: 0,
-            balls: 0,
-            fours: 0,
-            sixes: 0,
-            out: false
-          };
-        }
-
-        matchState.batsmanStats[strikerKey].runs += runsFromBall;
-
-        // Batter faced the ball
-        matchState.batsmanStats[strikerKey].balls++;
-
-        if (runsFromBall === 4)
-          matchState.batsmanStats[strikerKey].fours++;
-
-        if (runsFromBall === 6)
-          matchState.batsmanStats[strikerKey].sixes++;
-      }
-
-      // Rotate strike on odd runs
       if (runsFromBall % 2 === 1) {
-        [matchState.striker, matchState.nonStriker] =
-          [matchState.nonStriker, matchState.striker];
+        [matchState.striker, matchState.nonStriker] = [matchState.nonStriker, matchState.striker];
       }
-
       continue;
     }
 
-    // ---------- WICKET ----------
+    // ─────────── WICKET ───────────
     if (outcome.type === "wicket") {
-      const outBatsman = matchState.striker;   // with current engine, only striker can be out
-      const outBatsmanTrim = outBatsman.trim();
+      const outBatsmanTrim = matchState.striker.trim();
 
       matchState.wickets++;
       overWickets++;
@@ -406,16 +397,23 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
 
       bowlerStats.wickets++;
       matchState.dismissedBatsmen.add(outBatsmanTrim);
-      const outKey = outBatsmanTrim.toLowerCase();
-      if (matchState.batsmanStats[outKey]) matchState.batsmanStats[outKey].out = true;
 
-      const wicketRuns = matchState.batsmanStats[outKey]?.runs || 0;
-      const wicketBalls = matchState.batsmanStats[outKey]?.balls || 0;
+      const outKey = ensureBatsmanEntry(matchState, outBatsmanTrim);
+      const outBs = matchState.batsmanStats[outKey];
+
+      // Wicket delivery counts as a ball faced
+      outBs.balls++;
+      outBs.out = true;
+
+      // Pace / spin breakdown — outVsPace and outVsSpin are integer counts
+      if (bowlerType === "pace") { outBs.ballsVsPace++; outBs.outVsPace++; }
+      else if (bowlerType === "spin") { outBs.ballsVsSpin++; outBs.outVsSpin++; }
+
       matchState.lastWicket = {
         batsman: outBatsmanTrim,
         bowler: bowlerName,
-        runs: wicketRuns,
-        balls: wicketBalls,
+        runs: outBs.runs || 0,
+        balls: outBs.balls || 0,
         partnershipRuns: matchState.partnershipRuns,
         partnershipBalls: matchState.partnershipBalls
       };
@@ -431,43 +429,34 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
 
       if (matchState.wickets >= 10) break;
 
-      // --- Select next batsman (interactive) ---
       const newBatsman = await selectNextBatsman(interaction, overNumber, inningNumber, matchState);
       if (!newBatsman) break;
 
-      const newKey = newBatsman.trim().toLowerCase();
-      if (!matchState.batsmanStats[newKey]) {
-        matchState.batsmanStats[newKey] = { name: newBatsman, runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
-      }
-
-      // Replace striker (only striker can be out)
+      ensureBatsmanEntry(matchState, newBatsman.trim());
       matchState.striker = newBatsman;
+
+      matchState.actualBattingOrder.push(newBatsman.trim());
 
       commentaryText += `🏏 **${newBatsman}** walks out to the crease\n`;
       await overMessage.edit(commentaryText);
       await sleep(1500);
 
-      let phase = "";
-      if (overNumber < 6) phase = "pp";
-      else if (overNumber < 15) phase = "middle";
-      else phase = "death";
-
+      let phase = overNumber < 6 ? "pp" : overNumber < 15 ? "middle" : "death";
       if (!matchState.bowlerPhases) matchState.bowlerPhases = new Map();
       const bowlerPhaseStats = matchState.bowlerPhases.get(bowlerName) || { pp: 0, middle: 0, death: 0 };
       bowlerPhaseStats[phase]++;
       matchState.bowlerPhases.set(bowlerName, bowlerPhaseStats);
 
       ballsBowled++;
-      isFreeHit = false;   // free‑hit never carries over after a wicket
+      isFreeHit = false;
       continue;
     }
 
-    // ---------- NORMAL RUNS (outcome.type === "run") ----------
+    // ─────────── NORMAL RUNS ───────────
     if (outcome.type === "run") {
       matchState.partnershipRuns += outcome.runs;
       matchState.partnershipBalls++;
 
-      // Update momentum
       if (outcome.isBoundary) {
         overState.boundariesInOver++;
         overState.consecutiveBoundaries++;
@@ -483,17 +472,20 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
         overState.lastBallWasBoundary = false;
       }
 
-      // Update batsman stats
-      const strikerKey = strikerName.toLowerCase().trim();
-      if (!matchState.batsmanStats[strikerKey]) {
-        matchState.batsmanStats[strikerKey] = { name: strikerName, runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
-      }
-      matchState.batsmanStats[strikerKey].runs += outcome.runs;
-      matchState.batsmanStats[strikerKey].balls++;
-      if (outcome.runs === 4) matchState.batsmanStats[strikerKey].fours++;
-      if (outcome.runs === 6) matchState.batsmanStats[strikerKey].sixes++;
+      // Use ensureBatsmanEntry so pace/spin fields are always present
+      const strikerKey = ensureBatsmanEntry(matchState, strikerName);
+      const bs = matchState.batsmanStats[strikerKey];
 
-      // Commentary
+      bs.runs += outcome.runs;
+      bs.balls++;
+
+      // Pace / spin breakdown for every normal delivery
+      if (bowlerType === "pace") { bs.runsVsPace += outcome.runs; bs.ballsVsPace++; }
+      else if (bowlerType === "spin") { bs.runsVsSpin += outcome.runs; bs.ballsVsSpin++; }
+
+      if (outcome.runs === 4) bs.fours++;
+      if (outcome.runs === 6) bs.sixes++;
+
       const comment = getCommentary(outcome.runs, false);
       let momentumText = "";
       if (momentumFactors.bowler >= 10) momentumText = " 🔥 Bowler on fire!";
@@ -503,7 +495,6 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
       ballEvents.push(getBallSymbol(outcome.runs, false, null));
       await overMessage.edit(commentaryText);
 
-      // Strike rotation on odd runs
       if (outcome.runs % 2 === 1) {
         [matchState.striker, matchState.nonStriker] = [matchState.nonStriker, matchState.striker];
       }
@@ -525,11 +516,8 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
   commentaryText += `📈 **Over ${displayOverNumber} Summary:** ${overRuns} runs, ${overWickets} wickets | [ ${ballString} ] \n`;
   const currentBowlerStats = matchState.bowlerStats.get(bowlerName);
   if (currentBowlerStats) {
-    const bowlerOvers = currentBowlerStats.overs;
-    const bowlerRuns = currentBowlerStats.runs;
-    const bowlerWickets = currentBowlerStats.wickets;
-    const bowlerEcon = (bowlerRuns / bowlerOvers).toFixed(2);
-    commentaryText += `🎯 **${bowlerName}:** ${bowlerOvers}.0-${bowlerRuns}-${bowlerWickets} (Econ: ${bowlerEcon})\n`;
+    const bowlerEcon = (currentBowlerStats.runs / currentBowlerStats.overs).toFixed(2);
+    commentaryText += `🎯 **${bowlerName}:** ${currentBowlerStats.overs}.0-${currentBowlerStats.runs}-${currentBowlerStats.wickets} (Econ: ${bowlerEcon})\n`;
   }
 
   const strikerStats = matchState.batsmanStats[matchState.striker.toLowerCase().trim()] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
@@ -546,8 +534,8 @@ async function playOver(interaction, matchState, playersMap, stadium, overNumber
   commentaryText += `🤝 **Partnership:** ${matchState.partnershipRuns} runs (${matchState.partnershipBalls} balls)\n`;
 
   if (matchState.lastWicket && matchState.wickets > 0) {
-    const lastWicket = matchState.lastWicket;
-    commentaryText += `💀 **Last Wicket:** ${lastWicket.batsman} b ${lastWicket.bowler} ${lastWicket.runs}(${lastWicket.balls}) | Partnership: ${lastWicket.partnershipRuns} runs\n`;
+    const lw = matchState.lastWicket;
+    commentaryText += `💀 **Last Wicket:** ${lw.batsman} b ${lw.bowler} ${lw.runs}(${lw.balls}) | Partnership: ${lw.partnershipRuns} runs\n`;
   }
 
   if (target) {
