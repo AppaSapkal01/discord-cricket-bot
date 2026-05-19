@@ -24,14 +24,23 @@ async function saveAndAnnounceResult(interaction, matchState, innings1Stats, inn
   const innings2BattingTeam = teamABattedFirst ? teamB.teamName : teamA.teamName;
 
   let winner, wonBy;
-  if (innings2Stats.runs >= target) {
+  const runsTeam1 = innings1Stats.runs;
+  const runsTeam2 = innings2Stats.runs;
+
+  if (runsTeam2 > runsTeam1) {
+    // Chasing team wins
     winner = innings2BattingTeam;
     const wicketsLeft = 10 - innings2Stats.wickets;
     wonBy = `${wicketsLeft} wickets`;
-  } else {
+  } else if (runsTeam2 < runsTeam1) {
+    // Defending team wins
     winner = innings1BattingTeam;
-    const runsMargin = target - 1 - innings2Stats.runs;
+    const runsMargin = runsTeam1 - runsTeam2;
     wonBy = `${runsMargin} runs`;
+  } else {
+    // TIE
+    winner = "TIE";
+    wonBy = "Match Tied";
   }
 
   // ---- Build batters with innings info ----
@@ -45,7 +54,7 @@ async function saveAndAnnounceResult(interaction, matchState, innings1Stats, inn
   }));
   const allBattersWithInnings = [...battersInnings1, ...battersInnings2];
 
- 
+
   const validBatters = allBattersWithInnings.filter(b => b.name && b.name.trim() !== "");
   if (validBatters.length !== allBattersWithInnings.length) {
     console.warn(`Filtered out ${allBattersWithInnings.length - validBatters.length} batters due to missing name`);
@@ -137,10 +146,18 @@ async function saveAndAnnounceResult(interaction, matchState, innings1Stats, inn
   );
   await interaction.channel.send({ embeds: [matchSummaryEmbed] });
 
-  let winnerMessage = `\n🏆 **${winner} WINS!** 🏆\n`;
-  winnerMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  winnerMessage += `✅ **${winner}** won by **${wonBy}**\n`;
-  winnerMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  let winnerMessage;
+  if (winner === "TIE") {
+    winnerMessage = `\n🤝 **MATCH TIED!** 🤝\n`;
+    winnerMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    winnerMessage += `✅ Both teams finish with **${runsTeam1}** runs each.\n`;
+    winnerMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  } else {
+    winnerMessage = `\n🏆 **${winner} WINS!** 🏆\n`;
+    winnerMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    winnerMessage += `✅ **${winner}** won by **${wonBy}**\n`;
+    winnerMessage += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  }
   await interaction.channel.send(winnerMessage);
 
   return { winner, wonBy };

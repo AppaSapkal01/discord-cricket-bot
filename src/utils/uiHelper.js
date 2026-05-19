@@ -224,8 +224,16 @@ function createMatchSummaryEmbed(
   const embed = new EmbedBuilder()
     .setTitle("🏆 MATCH SUMMARY 🏆")
     .setColor(0xffd700)
-    .setDescription(`**${winner}** won by **${wonBy}**`)
     .setTimestamp();
+
+  // Handle tie vs normal result
+  let description;
+  if (winner === "TIE") {
+    description = "🤝 **MATCH TIED** 🤝\nBoth teams finished with the same score.";
+  } else {
+    description = `**${winner}** won by **${wonBy}**`;
+  }
+  embed.setDescription(description);
 
   const innings1Text = `**${teamA.teamName}** - ${innings1Stats.runs}/${innings1Stats.wickets} (${innings1Stats.overs} overs)`;
   const innings2Text = `**${teamB.teamName}** - ${innings2Stats.runs}/${innings2Stats.wickets} (${innings2Stats.overs} overs)`;
@@ -236,8 +244,13 @@ function createMatchSummaryEmbed(
   );
 
   let matchStats = `🏟️ Venue: ${stadium.name}\n`;
-  matchStats += `🏆 Winner: ${winner}\n`;
-  matchStats += `📈 Margin: ${wonBy}`;
+  if (winner === "TIE") {
+    matchStats += `🏆 Result: Match Tied\n`;
+    matchStats += `📈 Margin: Scores level`;
+  } else {
+    matchStats += `🏆 Winner: ${winner}\n`;
+    matchStats += `📈 Margin: ${wonBy}`;
+  }
 
   embed.addFields({ name: "📈 MATCH STATS", value: matchStats });
 

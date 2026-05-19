@@ -54,7 +54,7 @@ module.exports = {
 
         // Phase wickets – not available in current stats, using placeholder
         // In a real implementation you would fetch or compute these from ball-by-ball data
-        const phaseWickets = "0/0/0";
+        const phaseWickets = `${stats.bowling.ppWicket}/${stats.bowling.moWicket}/${stats.bowling.doWicket}`;
 
         const fours = stats.batting.fours || 0;
         const sixes = stats.batting.sixes || 0;

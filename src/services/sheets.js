@@ -293,7 +293,8 @@ async function saveMatchResult(match) {
       oversFaced,
       runsConceded,
       oversBowled,
-      won
+      won,
+      tie = false
     }) {
       const key = teamName.toLowerCase();
       let existing = tableMap.get(key);
@@ -323,7 +324,9 @@ async function saveMatchResult(match) {
 
       // UPDATE MATCH COUNTS
       matches += 1;
-      if (won) {
+      if (tie) {
+        points += 1;
+      } else if (won) {
         wins += 1;
         points += 2;
       } else {
@@ -331,10 +334,13 @@ async function saveMatchResult(match) {
       }
 
       // ADD THIS MATCH'S STATS
-      totalRunsScored += runsScored;
-      totalOversFaced += oversToBalls(oversFaced);
-      totalRunsConceded += runsConceded;
-      totalOversBowled += oversToBalls(oversBowled);
+      if (!tie) {
+        totalRunsScored += runsScored;
+        totalOversFaced += oversToBalls(oversFaced);
+        totalRunsConceded += runsConceded;
+        totalOversBowled += oversToBalls(oversBowled);
+      }
+
 
       // CALCULATE NRR
       const oversFacedFloat = totalOversFaced / 6;
@@ -386,23 +392,26 @@ async function saveMatchResult(match) {
 
     // UPDATE BOTH TEAMS
     // For Team A: They scored X runs in Y overs, and conceded Z runs in W overs
+    const isTie = (match.winner === "TIE");
+
     await updateTeam({
       teamName: match.teamA,
       runsScored: match.scoreA,
       oversFaced: match.oversA,
       runsConceded: match.scoreB,
       oversBowled: match.oversB,
-      won: match.winner === match.teamA
+      won: match.winner === match.teamA,
+      tie: isTie
     });
 
-    // For Team B: They scored X runs in Y overs, and conceded Z runs in W overs
     await updateTeam({
       teamName: match.teamB,
       runsScored: match.scoreB,
       oversFaced: match.oversB,
       runsConceded: match.scoreA,
       oversBowled: match.oversA,
-      won: match.winner === match.teamB
+      won: match.winner === match.teamB,
+      tie: isTie
     });
 
   });
@@ -565,7 +574,7 @@ async function recalculateAllTeamsNRR() {
 async function updateStadiumStats(stadiumName, matchData) {
   const sheetName = "Stadium DB";
   const range = `${sheetName}!A2:R`;
-  
+
   // 1. Fetch both values and formulas
   const [valuesRes, formulasRes] = await Promise.all([
     sheets.spreadsheets.values.get({
@@ -584,7 +593,7 @@ async function updateStadiumStats(stadiumName, matchData) {
   let rowIndex = -1;
   let currentRow = null;
   let formulaRow = null;
-  
+
   for (let i = 0; i < rows.length; i++) {
     const name = rows[i][0] ? rows[i][0].toString().trim().toLowerCase() : "";
     if (name === stadiumName.toLowerCase()) {
@@ -594,18 +603,18 @@ async function updateStadiumStats(stadiumName, matchData) {
       break;
     }
   }
-  
+
   if (rowIndex === -1) {
     console.error(`Stadium "${stadiumName}" not found. Skipping.`);
     return;
   }
-  
+
   if (!formulaRow) formulaRow = new Array(18).fill('');
-  
+
   // Ensure arrays have length 18
   while (currentRow.length < 18) currentRow.push('');
   while (formulaRow.length < 18) formulaRow.push('');
-  
+
   // Parse current values (indexes as per column order)
   const matches = parseInt(currentRow[4] || 0);
   const firstInningsTotal = parseInt(currentRow[5] || 0);
@@ -618,7 +627,7 @@ async function updateStadiumStats(stadiumName, matchData) {
   const highestSuccessfulChase = parseInt(currentRow[15] || 0);
   const highestTotal = parseInt(currentRow[16] || 0);
   const lowestTotal = parseInt(currentRow[17] || 0);
-  
+
   // New values
   const newMatches = matches + 1;
   const newFirstInningsTotal = firstInningsTotal + matchData.firstInningsScore;
@@ -630,43 +639,43 @@ async function updateStadiumStats(stadiumName, matchData) {
   let newChaseWins = chaseWins;
   if (matchData.defendWin) newDefendWins++;
   if (matchData.chaseWin) newChaseWins++;
-  
+
   let newHighestSuccessfulChase = highestSuccessfulChase;
   if (matchData.chaseWin && matchData.secondInningsScore > highestSuccessfulChase) {
     newHighestSuccessfulChase = matchData.secondInningsScore;
   }
-  
+
   let newHighestTotal = highestTotal;
   const maxScore = Math.max(matchData.firstInningsScore, matchData.secondInningsScore);
   if (maxScore > highestTotal) newHighestTotal = maxScore;
-  
+
   let newLowestTotal = lowestTotal;
   const minScore = Math.min(matchData.firstInningsScore, matchData.secondInningsScore);
   if (lowestTotal === 0 || minScore < lowestTotal) newLowestTotal = minScore;
-  
+
   // Build new row array (18 columns)
   // Column indices: 0 A,1 B,2 C,3 D,4 E,5 F,6 G,7 H,8 I,9 J,10 K,11 L,12 M,13 N,14 O,15 P,16 Q,17 R
   const updatedRow = new Array(18);
-  
+
   // Preserve columns that have formulas or we don't modify
   // Keep A, B, C, D (Innings) unchanged
   updatedRow[0] = currentRow[0]; // Stadium name
   updatedRow[1] = currentRow[1]; // Country
   updatedRow[2] = currentRow[2]; // Type
   updatedRow[3] = formulaRow[3] || currentRow[3]; // D: Innings (formula = matches*2) - preserve formula
-  
+
   // E: Matches (we modify)
   updatedRow[4] = newMatches;
   // F: 1st Inning Score (cumulative)
   updatedRow[5] = newFirstInningsTotal;
   // G: 2nd Inning Score (cumulative)
   updatedRow[6] = newSecondInningsTotal;
-  
+
   // H, I, J are formula columns – preserve original formulas
   updatedRow[7] = formulaRow[7] || currentRow[7]; // Avg 1st Inns Score
   updatedRow[8] = formulaRow[8] || currentRow[8]; // Avg 2nd Inns Score
   updatedRow[9] = formulaRow[9] || currentRow[9]; // Avg Match Total
-  
+
   // K: Total Wickets
   updatedRow[10] = newTotalWickets;
   // L: Pacer Wickets
@@ -683,7 +692,7 @@ async function updateStadiumStats(stadiumName, matchData) {
   updatedRow[16] = newHighestTotal;
   // R: Lowest Total
   updatedRow[17] = newLowestTotal;
-  
+
   // Update the row using USER_ENTERED (will not overwrite formulas because we put formulas in H,I,J)
   await sheets.spreadsheets.values.update({
     spreadsheetId: PRIVATE_PLAYERS_SPREADSHEET_ID,
@@ -691,7 +700,7 @@ async function updateStadiumStats(stadiumName, matchData) {
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [updatedRow] }
   });
-  
+
 }
 
 module.exports = {

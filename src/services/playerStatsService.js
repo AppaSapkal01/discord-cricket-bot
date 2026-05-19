@@ -353,7 +353,7 @@ function calculatePlayerStats(battingRow, bowlingRow) {
     const fifties = Number(battingRow?.[12] || 0);
     const centuries = Number(battingRow?.[13] || 0);
     const boundaryRate = (battingRuns > 0) ? (((fours * 4 + sixes * 6) / battingRuns) * 100).toFixed(1) : "0.0";
-    const ballsPerBoundary =  battingRow?.[26] || "0";
+    const ballsPerBoundary = battingRow?.[26] || "0";
     const bowlingMatches = Number(bowlingRow?.[2] || 0);
     const bowlingOvers = bowlingRow?.[3] || "0.0";
     const bowlingRuns = Number(bowlingRow?.[4] || 0);
@@ -361,6 +361,9 @@ function calculatePlayerStats(battingRow, bowlingRow) {
     const economy = parseFloat(bowlingOvers) > 0 ? (bowlingRuns / parseFloat(bowlingOvers)).toFixed(2) : "0.00";
     const bowlingAvg = bowlingWickets > 0 ? (bowlingRuns / bowlingWickets).toFixed(2) : "0.00";
     const bestFigures = bowlingRow?.[8] || "0/0";
+    const ppWicket = bowlingRow?.[9] || "0"
+    const moWicket = bowlingRow?.[10] || "0"
+    const doWicket = bowlingRow?.[11] || "0"
     return {
         batting: {
             matches: battingMatches,
@@ -384,8 +387,51 @@ function calculatePlayerStats(battingRow, bowlingRow) {
             runs: bowlingRuns,
             economy,
             average: bowlingAvg,
-            bestFigures
+            bestFigures,
+            ppWicket,
+            moWicket,
+            doWicket
         }
+    };
+}
+
+// ========== POSITION STATS QUERY ==========
+async function getPositionStats(playerName, position) {
+    const rows = await loadSheetRange("Stats_position", "A2:G");
+    if (!rows.length) return null;
+
+    const searchName = playerName.toLowerCase().trim();
+    const posNum = parseInt(position);
+    if (isNaN(posNum) || posNum < 1 || posNum > 11) return null;
+
+    // Find exact match (case-insensitive) for player name and position
+    const matchingRow = rows.find(row => {
+        const name = row[0]?.toString().toLowerCase().trim();
+        const pos = parseInt(row[1]);
+        return name === searchName && pos === posNum;
+    });
+
+    if (!matchingRow) return null;
+
+    // Columns: A:Name, B:Position, C:Format, D:Matches, E:Runs, F:Balls, G:Not Outs
+    const matches = parseInt(matchingRow[3]) || 0;
+    const runs = parseInt(matchingRow[4]) || 0;
+    const balls = parseInt(matchingRow[5]) || 0;
+    const notOuts = parseInt(matchingRow[6]) || 0;
+
+    const dismissals = matches - notOuts;
+    const average = dismissals > 0 ? (runs / dismissals).toFixed(2) : (runs > 0 ? runs.toFixed(2) : "0.00");
+    const strikeRate = balls > 0 ? ((runs / balls) * 100).toFixed(2) : "0.00";
+
+    return {
+        playerName: matchingRow[0],
+        position: posNum,
+        matches,
+        runs,
+        balls,
+        notOuts,
+        average,
+        strikeRate
     };
 }
 
@@ -395,4 +441,5 @@ module.exports = {
     updatePositionStats,
     getPlayerStats,
     calculatePlayerStats,
+    getPositionStats
 };

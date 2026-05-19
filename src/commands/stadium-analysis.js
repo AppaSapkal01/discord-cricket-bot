@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
 const { google } = require("googleapis");
 
 const { PRIVATE_PLAYERS_SPREADSHEET_ID } = process.env;
@@ -9,6 +9,24 @@ const auth = new google.auth.GoogleAuth({
 });
 
 const sheets = google.sheets({ version: "v4", auth });
+
+/**
+ * Generate a descriptive stadium tagline based on match statistics
+ */
+function getStadiumDescriptor(avgFirstInnings, pacerPercent, spinnerPercent, defendPercent, chasePercent, matches) {
+  if (matches === 0) return "Neutral • No Data Available";
+
+  if (avgFirstInnings >= 180) return "Batting Paradise • High-Scoring";
+  if (avgFirstInnings <= 140) return "Bowling Friendly • Low-Scoring";
+
+  if (spinnerPercent > 60) return "Spin Haven • Slow Pitch";
+  if (pacerPercent > 60) return "Pacer's Paradise • Quick Pitch";
+
+  if (defendPercent >= 70) return "Defend Fortress";
+  if (chasePercent >= 70) return "Chase Master • Dew Factor";
+
+  return "Balanced Contest • Neutral";
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -49,7 +67,6 @@ module.exports = {
       }
 
       const name = stadiumRow[0]?.trim() || "Unknown";
-      const type = stadiumRow[2]?.trim() || "Neutral";
       const matches = parseInt(stadiumRow[4]) || 0;
       const firstInningsCumulative = parseInt(stadiumRow[5]) || 0;
       const secondInningsCumulative = parseInt(stadiumRow[6]) || 0;
@@ -72,29 +89,30 @@ module.exports = {
       const pacerPercent = totalWickets > 0 ? Math.round((pacerWickets / totalWickets) * 100) : 0;
       const spinnerPercent = totalWickets > 0 ? Math.round((spinnerWickets / totalWickets) * 100) : 0;
 
-      // Build embed description
-      const description = 
-        `Type: ${type}\n` +
-        `━━━━━━━━━━━━━━━━━━\n\n` +
-        `⚔️ Total Matches: ${matches}\n` +
-        `📊 Avg 1st Inns Total : ${avgFirstInnings}\n` +
-        `📊 Avg 2nd Inns Total : ${avgSecondInnings}\n\n` +
-        `🏆 Highest Total : ${highestTotal}\n` +
-        `📉 Lowest Total : ${lowestTotal}\n` +
-        `🎯 Highest Chase : ${highestChase}\n\n` +
-        `📈 Defend Wins : ${defendWins} (${defendPercent}%)\n` +
-        `🏃 Chase Wins : ${chaseWins} (${chasePercent}%)\n\n` +
-        `⚔️ Pace Wicket : ${pacerWickets} W (${pacerPercent}%)\n` +
-        `🌀 Spin Wicket : ${spinnerWickets} W (${spinnerPercent}%)`;
+      const descriptor = getStadiumDescriptor(avgFirstInnings, pacerPercent, spinnerPercent, defendPercent, chasePercent, matches);
 
-      const embed = new EmbedBuilder()
-        .setColor(0x2E8B57) // Stadium green
-        .setTitle(`${name} 🏟️`)
-        .setDescription(description)
-        .setFooter({ text: "Stadium Analysis" })
-        .setTimestamp();
+      // Build the exact plain-text format
+      const output = `🏟️ ${name}
+(${descriptor})
+─────────────────────────
 
-      await interaction.editReply({ embeds: [embed] });
+📊 MATCH STATS
+┣ Total Matches: ${matches}
+┣ Avg 1st Inns: ${avgFirstInnings}
+┣ Avg 2nd Inns: ${avgSecondInnings}
+┣ Highest Total: ${highestTotal}
+┣ Lowest Total: ${lowestTotal}
+┣ Highest Chase: ${highestChase}
+
+🏆 RESULTS
+┣ Defend Wins: ${defendWins} (${defendPercent}%)
+┣ Chase Wins: ${chaseWins} (${chasePercent}%)
+
+🎯 BOWLING 
+┣ Pace Wkts: ${pacerWickets} (${pacerPercent}%)
+┗ Spin Wkts: ${spinnerWickets} (${spinnerPercent}%)`;
+
+      await interaction.editReply(`\`\`\`\n${output}\n\`\`\``);
     } catch (error) {
       console.error("Stadium analysis error:", error);
       await interaction.editReply("❌ Failed to fetch stadium analysis. Please try again later.");
